@@ -98,7 +98,7 @@ def _run_pipeline(symbol: str, trade_date: str, market: str, depth: str, data_wi
 
 # ── Stock info + K-line (single fetch, cached) ────────────────────────
 @st.cache_data(show_spinner=False, ttl=1800)
-def _fetch_stock_data(symbol: str, market: str, days: int = 120):
+def _fetch_stock_data(symbol: str, market: str, days: int = 30):
     """Return (info_dict, kline_dataframe). Single network call for both."""
     try:
         from tradingagents.data import a_stock, hk_stock, us_stock
@@ -259,7 +259,7 @@ def run():
     if not kline_df.empty:
         try:
             import plotly.graph_objects as go
-            kdf = kline_df.tail(120).copy()
+            kdf = kline_df.copy()
             kdf["date"] = pd.to_datetime(kdf["date"])
             for c in ("open","high","low","close","volume"):
                 if c in kdf.columns:

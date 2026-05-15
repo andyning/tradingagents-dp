@@ -104,7 +104,7 @@ def _run_pipeline(symbol: str, trade_date: str, market: str, depth: str, data_wi
 
 # ── Stock info + K-line (single fetch, cached) ────────────────────────
 @st.cache_data(show_spinner=False, ttl=1800)
-def _fetch_stock_data(symbol: str, market: str, days: int = 30, _refresh: int = 0):
+def _fetch_stock_data(symbol: str, market: str, days: int = 30):
     """Return (info_dict, kline_dataframe). Single network call for both."""
     from tradingagents.data import a_stock, hk_stock, us_stock
     if market == "hk_stock":
@@ -193,7 +193,6 @@ def run():
     if "_running" not in st.session_state: st.session_state._running = False
     if "_done" not in st.session_state: st.session_state._done = False
     if "_thread" not in st.session_state: st.session_state._thread = None
-    if "_refresh_key" not in st.session_state: st.session_state._refresh_key = 0
     if "_from_cache" not in st.session_state: st.session_state._from_cache = False
     if "_cached_result" not in st.session_state: st.session_state._cached_result = None
     if "_cached_symbol" not in st.session_state: st.session_state._cached_symbol = ""
@@ -269,15 +268,15 @@ def run():
 
     # ═══ MAIN ═══
     import datetime as _dt
-    info, kline_df = _fetch_stock_data(symbol, market, _refresh=st.session_state._refresh_key)
+    info, kline_df = _fetch_stock_data(symbol, market)
 
     # Stock header + refresh
     rcol1, rcol2 = st.columns([25, 2])
     with rcol1:
         st.caption(f"Data as of {_dt.datetime.now().strftime('%H:%M:%S')} · 30 min cache")
     with rcol2:
-        if st.button("Refresh", help="Refresh stock data & K-line chart"):
-            st.session_state._refresh_key += 1
+        if st.button("Refresh", key="refresh_data_btn", help="Refresh stock data & K-line chart"):
+            _fetch_stock_data.clear()
             st.rerun()
     cols = st.columns(7)
     items = [

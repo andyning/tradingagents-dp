@@ -214,13 +214,8 @@ def run():
         trade_date = st.date_input("date_input", pd.Timestamp.now(), label_visibility="collapsed").strftime("%Y-%m-%d")
 
         st.markdown('<div class="ig-label">Market</div>', unsafe_allow_html=True)
-        detected = _detect_market(symbol)
-        market_opts = ["auto", "a_stock", "hk_stock", "us_stock"]
-        market_labels = {"auto": f"Auto ({_market_label(detected)})", "a_stock": "A-Shares (A股)", "hk_stock": "Hong Kong (港股)", "us_stock": "US (美股)"}
-        market_sel = st.selectbox("market_select", market_opts, index=0,
-                                  format_func=lambda x: market_labels[x],
-                                  label_visibility="collapsed")
-        market = detected if market_sel == "auto" else market_sel
+        market = _detect_market(symbol)
+        st.markdown(f'<div style="color:rgba(255,255,255,.45);font-size:0.78rem;padding:4px 0">{_market_label(market)}</div>', unsafe_allow_html=True)
 
         st.markdown('<div class="ig-label">Data Window</div>', unsafe_allow_html=True)
         data_window = st.selectbox("window_select", [30, 60, 120, 250], index=0,

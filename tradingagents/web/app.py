@@ -112,6 +112,8 @@ def _fetch_stock_data(symbol: str, market: str, days: int = 30, _refresh: int = 
         mod = us_stock
     else:
         mod = a_stock
+    from tradingagents.logging import get_logger
+    get_logger(__name__).info("_fetch_stock_data: symbol=%s market=%s mod=%s", symbol, market, mod.__name__)
     try:
         end = pd.Timestamp.now().strftime("%Y-%m-%d")
         start = (pd.Timestamp.now() - pd.Timedelta(days=int(days * 1.6))).strftime("%Y-%m-%d")
@@ -241,6 +243,7 @@ def run():
 
     # ═══ MAIN ═══
     import datetime as _dt
+    st.caption(f"[DEBUG] market={market} symbol={symbol}")
     info, kline_df = _fetch_stock_data(symbol, market, _refresh=st.session_state._refresh_key)
 
     # Stock header + refresh

@@ -105,9 +105,14 @@ def _run_pipeline(symbol: str, trade_date: str, market: str, depth: str, data_wi
 @st.cache_data(show_spinner=False, ttl=1800)
 def _fetch_stock_data(symbol: str, market: str, days: int = 30, _refresh: int = 0):
     """Return (info_dict, kline_dataframe). Single network call for both."""
+    from tradingagents.data import a_stock, hk_stock, us_stock
+    if market == "hk_stock":
+        mod = hk_stock
+    elif market == "us_stock":
+        mod = us_stock
+    else:
+        mod = a_stock
     try:
-        from tradingagents.data import a_stock, hk_stock, us_stock
-        mod = {"a_stock": a_stock, "hk_stock": hk_stock, "us_stock": us_stock}.get(market, a_stock)
         end = pd.Timestamp.now().strftime("%Y-%m-%d")
         start = (pd.Timestamp.now() - pd.Timedelta(days=int(days * 1.6))).strftime("%Y-%m-%d")
         df = mod.get_kline_daily(symbol, start, end)

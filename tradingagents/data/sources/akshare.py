@@ -156,6 +156,35 @@ class AkshareSource(DataSource):
 
     # ---- Remaining methods return empty (not supported) ----
 
+    # ---- HK Stock K-line ----
+    def hk_kline_daily(
+        self, symbol: str, start_date: str, end_date: str, adjust: str = "qfq"
+    ) -> pd.DataFrame:
+        """Fetch HK stock K-line via akshare eastmoney."""
+        try:
+            import akshare as ak
+            adj = {"qfq": "qfq", "hfq": "hfq", "none": ""}.get(adjust, "qfq")
+            sd = start_date.replace("-", "")
+            ed = end_date.replace("-", "")
+            df = ak.stock_hk_hist(symbol=symbol.strip(), period="daily", start_date=sd, end_date=ed, adjust=adj)
+            if df is None or df.empty:
+                return pd.DataFrame()
+            col_map = {
+                "日期": "date", "开盘": "open", "收盘": "close",
+                "最高": "high", "最低": "low", "成交量": "volume",
+                "成交额": "amount", "涨跌幅": "change_pct", "换手率": "turn",
+            }
+            df = df.rename(columns=col_map)
+            df["symbol"] = symbol
+            if "date" in df.columns:
+                df["date"] = pd.to_datetime(df["date"]).dt.date
+            for col in ("open","high","low","close","volume","amount","change_pct","turn"):
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors="coerce")
+            return df
+        except Exception:
+            return pd.DataFrame()
+
     # ---- US Stock K-line ----
     def us_kline_daily(
         self, symbol: str, start_date: str, end_date: str, adjust: str = "qfq"

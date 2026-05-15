@@ -1,7 +1,8 @@
 """Hong Kong stock unified data interface.
 
-Primary: efinance (free, multi-market)
-Secondary: yfinance (global coverage)
+Primary: akshare (eastmoney, works in China)
+Secondary: efinance
+Tertiary: yfinance (global, needs VPN)
 """
 
 from __future__ import annotations
@@ -9,12 +10,14 @@ from __future__ import annotations
 import pandas as pd
 
 from tradingagents.data.retry import with_fallback
+from tradingagents.data.sources.akshare import AkshareSource
 from tradingagents.data.sources.efinance import EfinanceSource
 from tradingagents.data.sources.yfinance import YFinanceSource
 from tradingagents.logging import get_logger
 
 logger = get_logger(__name__)
 
+_akshare = AkshareSource()
 _efinance = EfinanceSource()
 _yfinance = YFinanceSource(market="hk_stock")
 
@@ -25,6 +28,7 @@ def get_kline_daily(
     return with_fallback(
         symbol, "kline_daily_hk",
         sources=[
+            ("akshare", lambda **kw: _akshare.hk_kline_daily(**kw)),
             ("efinance", lambda **kw: _efinance.kline_daily(**kw)),
             ("yfinance", lambda **kw: _yfinance.kline_daily(**kw)),
         ],

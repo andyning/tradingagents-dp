@@ -128,19 +128,30 @@ def for_market_analyst(state: dict[str, Any]) -> str:
 
 
 def for_news_analyst(state: dict[str, Any]) -> str:
-    """Fetch recent news for the stock."""
+    """Fetch recent news, filtered for relevance."""
     symbol = state["company_of_interest"]
     market = state.get("market", "a_stock")
     mod = _get_mod(market)
 
     parts = ["## 真实新闻数据 (你必须基于以下新闻进行分析)\n"]
     try:
-        news = mod.get_news(symbol, limit=15)
+        news = mod.get_news(symbol, limit=30)
         if not news.empty:
-            for _, row in news.head(15).iterrows():
-                title = row.get("title", "")
-                source = row.get("source", "")
-                parts.append(f"- **{title}** ({source})")
+            # Apply relevance filter
+            from tradingagents.graph.news_filter import filter_news
+            raw_items = news.to_dict("records")
+            filtered = filter_news(raw_items, symbol, company_name="", max_items=15)
+            if filtered:
+                for item in filtered:
+                    title = item.get("title", "")
+                    source = item.get("source", "")
+                    parts.append(f"- **{title}** ({source})")
+            else:
+                parts.append("(相关新闻较少，以下为可用的相关新闻)")
+                for _, row in news.head(10).iterrows():
+                    title = row.get("title", "")
+                    source = row.get("source", "")
+                    parts.append(f"- **{title}** ({source})")
         else:
             try:
                 global_news = a_stock.get_global_news(limit=10)

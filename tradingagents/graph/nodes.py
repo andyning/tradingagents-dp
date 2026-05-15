@@ -142,9 +142,20 @@ def lockup_analyst_node(state: dict[str, Any]) -> dict[str, Any]:
 # Phase 2: Quality Gate
 # ============================================================================
 
+ANALYST_NAMES = {
+    "market": "Market/Tech", "social": "Sentiment", "news": "News",
+    "fundamentals": "Fundamentals", "policy": "Policy",
+    "hot_money": "Hot Money", "lockup": "Lockup",
+}
+
+FAILURE_MARKERS = ["无法获取", "cannot retrieve", "don't have access",
+                   "unable to fetch", "工具调用失败", "I cannot", "模拟", "simulate"]
+
+
 def quality_gate_node(state: dict[str, Any]) -> dict[str, Any]:
-    """Assess data quality of all analyst reports. Hard checks + grading."""
+    """Hard checks + LLM review of all analyst reports."""
     start_step("quality_gate")
+    symbol = state.get("company_of_interest", "")
     reports = {
         "market": state.get("market_report", ""),
         "social": state.get("sentiment_report", ""),
@@ -155,30 +166,98 @@ def quality_gate_node(state: dict[str, Any]) -> dict[str, Any]:
         "lockup": state.get("lockup_report", ""),
     }
 
-    grades = {}
-    failures = []
+    # ── Hard checks ──
+    hard_grades = {}
+    hard_fail = []
     for name, content in reports.items():
-        if not content or len(content.strip()) < 100:
-            grades[name] = "F"
-            failures.append(name)
-        elif "[数据缺失" in content:
-            grades[name] = "C"
-        elif len(content) > 1500:
-            grades[name] = "A"
-        elif len(content) > 500:
-            grades[name] = "B"
+        cl = content.strip() if content else ""
+        if not cl or len(cl) < 100:
+            hard_grades[name] = "F"; hard_fail.append(name)
+        elif any(m.lower() in cl.lower() for m in FAILURE_MARKERS):
+            hard_grades[name] = "D"; hard_fail.append(name)
+        elif len(cl) > 1500:
+            hard_grades[name] = "A"
+        elif len(cl) > 500:
+            hard_grades[name] = "B"
         else:
-            grades[name] = "D"
-            failures.append(name)
+            hard_grades[name] = "C"
 
-    summary_parts = [f"Quality Gate Results for {state.get('company_of_interest', '')}:"]
-    for name, grade in grades.items():
-        summary_parts.append(f"  {name}: {grade}")
+    # ── LLM review (batch all 7 reports, single call) ──
+    llm_grades = {}
+    try:
+        review_parts = [
+            "You are a quality assurance reviewer. Grade each analyst report below on three dimensions:",
+            "- **Data Completeness** (A-F): Did they use the real data provided? Fabricated data = F.",
+            "- **Analysis Depth** (A-F): Surface-level summary vs. insightful, specific analysis.",
+            "- **Actionability** (A-F): Can a trader act on this? Specific numbers/levels = A.",
+            "",
+            "Output format (one line per analyst):",
+            "ANALYST | COMPLETENESS | DEPTH | ACTIONABILITY | 1-sentence justification",
+            "",
+        ]
+        for name, content in reports.items():
+            snippet = (content or "")[:600]
+            review_parts.append(f"--- {ANALYST_NAMES.get(name, name)} ---\n{snippet}\n")
+
+        review_prompt = "\n".join(review_parts)
+        resp = _quick_llm().chat([{"role": "user", "content": review_prompt}])
+        review_text = resp.content or ""
+
+        # Parse grades from LLM response
+        for line in review_text.split("\n"):
+            line = line.strip()
+            parts = [p.strip() for p in line.split("|")]
+            if len(parts) >= 4:
+                analyst_part = parts[0].lower()
+                for key in reports:
+                    if key in analyst_part or ANALYST_NAMES.get(key, "").lower() in analyst_part:
+                        try:
+                            grades_list = [p.strip().upper() for p in parts[1:4]]
+                            score = sum(
+                                5 if g == "A" else 4 if g == "B" else 3 if g == "C"
+                                else 2 if g == "D" else 1
+                                for g in grades_list if g in "ABCDF"
+                            ) / 3
+                            if score >= 4.5: llm_grades[key] = "A"
+                            elif score >= 3.5: llm_grades[key] = "B"
+                            elif score >= 2.5: llm_grades[key] = "C"
+                            elif score >= 1.5: llm_grades[key] = "D"
+                            else: llm_grades[key] = "F"
+                        except Exception:
+                            pass
+                        break
+    except Exception as exc:
+        logger.warning("LLM quality review failed: %s", exc)
+
+    # ── Merge grades ──
+    final_grades = {}
+    failures = []
+    for name in reports:
+        h = hard_grades.get(name, "C")
+        l = llm_grades.get(name, h)
+        # If hard check failed (D/F), LLM can't override — stays failed
+        if h in ("D", "F"):
+            final_grades[name] = h; failures.append(name)
+        else:
+            # Use LLM grade but don't let it drop below C on a passed hard check
+            grade_order = {"A": 5, "B": 4, "C": 3, "D": 2, "F": 1}
+            final = max(grade_order.get(l, 3), grade_order.get(h, 3))
+            for g, v in grade_order.items():
+                if v == final: final_grades[name] = g; break
+
+    summary_parts = [f"Quality Gate — {symbol}"]
+    for name in reports:
+        h = hard_grades.get(name, "?")
+        l = llm_grades.get(name, "—")
+        f = final_grades.get(name, "?")
+        analyst = ANALYST_NAMES.get(name, name)
+        summary_parts.append(f"  {analyst}: {f} (hard={h}, llm={l})")
     if failures:
-        summary_parts.append(f"  ⚠ Failures (D/F): {', '.join(failures)}")
+        summary_parts.append(f"  ⚠ Flagged: {', '.join(ANALYST_NAMES.get(f, f) for f in failures)}")
 
     summary = "\n".join(summary_parts)
-    logger.info("Quality gate: %s", {k: v for k, v in grades.items() if v in ("D", "F")})
+    logger.info("Quality gate: hard_fail=%s llm_reviewed=%d",
+                failures, len(llm_grades))
     complete_step("quality_gate")
 
     return {

@@ -2,6 +2,8 @@
 
 Multi-agent LLM investment analysis framework. 7 specialist analysts debate, a portfolio manager decides. A-shares, Hong Kong, and US markets.
 
+> Based on [TauricResearch/TradingAgents](https://github.com/TauricResearch/TradingAgents) — simplified and adapted for DeepSeek only.
+
 ```
 7 Analysts → Quality Gate → Bull/Bear Debate → Research Manager
 → Trader → Risk Debate → Portfolio Manager
@@ -168,14 +170,14 @@ This project is for educational and research purposes only. It does not constitu
 
 ## Credits
 
-This project is a heavily modified fork of [TauricResearch/TradingAgents](https://github.com/TauricResearch/TradingAgents), a multi-agent LLM trading framework (Apache 2.0). Changes include:
+This project is based on [TauricResearch/TradingAgents](https://github.com/TauricResearch/TradingAgents), a multi-agent LLM trading framework (Apache 2.0). It has been simplified and adapted to work exclusively with DeepSeek.
 
-- **LLM layer**: stripped to DeepSeek only (removed 10+ providers)
-- **Data layer**: completely rewritten — Baostock/efinance/akshare/yfinance with multi-level fallback and schema validation
-- **Prompt system**: 15 Jinja2 templates, extracted from code, with real data pre-fetching
-- **Graph orchestration**: LangGraph with three analysis depths (Light/Medium/Deep)
-- **Web UI**: professional financial dashboard with progress tracking and token statistics
-- **Backtesting**: Backtrader engine with A-stock rules (T+1, price limits, lot sizes)
+Key modifications:
+- Stripped LLM layer to DeepSeek only (removed 10+ providers)
+- Rewrote data layer with Baostock/efinance/akshare/yfinance and multi-level fallback
+- Extracted prompts to Jinja2 templates with real data pre-fetching
+- Added three analysis depths (Light/Medium/Deep)
+- Professional web dashboard with progress tracking and token statistics
 
 Original paper: [TradingAgents: Multi-Agents LLM Financial Trading Framework](https://arxiv.org/abs/2412.20138)
 

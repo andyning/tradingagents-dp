@@ -27,6 +27,7 @@ dependencies = [
     "efinance>=0.5.0",
     "akshare>=1.18.0",
     "yfinance>=0.2.0",
+    "futu-api>=6.0.0",
 
     # ---- Backtesting ----
     "backtrader>=1.9.78.123",

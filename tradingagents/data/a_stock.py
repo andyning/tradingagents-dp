@@ -14,12 +14,14 @@ from tradingagents.data.retry import with_fallback
 from tradingagents.data.sources.baostock import BaostockSource
 from tradingagents.data.sources.efinance import EfinanceSource
 from tradingagents.data.sources.akshare import AkshareSource
+from tradingagents.data.sources.futu import FutuSource
 from tradingagents.data.sources.yfinance import YFinanceSource
 from tradingagents.logging import get_logger
 
 logger = get_logger(__name__)
 
 # Singleton source instances
+_futu = FutuSource(market="a_stock")
 _baostock = BaostockSource()
 _efinance = EfinanceSource()
 _akshare = AkshareSource()
@@ -35,6 +37,7 @@ def get_kline_daily(
     return with_fallback(
         symbol, "kline_daily",
         sources=[
+            ("futu", lambda **kw: _futu.kline_daily(**kw)),
             ("baostock", lambda **kw: _baostock.kline_daily(**kw)),
             ("efinance", lambda **kw: _efinance.kline_daily(**kw)),
             ("yfinance", lambda **kw: _yfinance.kline_daily(**kw)),

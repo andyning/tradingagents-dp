@@ -185,7 +185,7 @@ def run():
                               label_visibility="collapsed")
 
         st.markdown('<div class="ig-label">Data Window</div>', unsafe_allow_html=True)
-        data_window = st.selectbox("window_select", [30, 60, 120, 250], index=2,
+        data_window = st.selectbox("window_select", [30, 60, 120, 250], index=0,
                                    format_func=lambda x: f"{x} trading days ({x//21}月)",
                                    label_visibility="collapsed")
 

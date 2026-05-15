@@ -46,7 +46,6 @@ class FutuSource(DataSource):
         try:
             from futu import OpenQuoteContext
             ctx = OpenQuoteContext(host="127.0.0.1", port=11111)
-            ctx.set_conn_timeout(3)
             return ctx
         except Exception:
             return None

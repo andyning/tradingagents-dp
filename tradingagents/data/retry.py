@@ -20,8 +20,8 @@ from tradingagents.logging import get_logger
 logger = get_logger(__name__)
 
 T = TypeVar("T")
-RETRY_BACKOFF = (1, 2, 4)  # seconds
-MAX_RETRIES = 3
+RETRY_BACKOFF = (3, 6, 12)  # seconds — generous for rate-limited APIs
+MAX_RETRIES = 2
 
 
 def with_fallback(

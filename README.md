@@ -42,7 +42,17 @@ Edit `.env`:
 DEEPSEEK_API_KEY=sk-your-key-here
 ```
 
-All other settings have sensible defaults. Data sources (Baostock, efinance, akshare) are free and require no registration.
+All other settings have sensible defaults.
+
+### Futu OpenD (recommended — fast, free, multi-market)
+
+[Futu OpenAPI](https://support.futunn.com/topic464) provides free real-time and historical data for A-shares, HK, and US stocks. No account or deposit required.
+
+1. Download **Futu_OpenD-GUI** from [https://support.futunn.com/topic464](https://support.futunn.com/topic464)
+2. Install and launch OpenD — login with your phone number (no brokerage account needed)
+3. A F icon appears in the system tray — OpenD is running on `localhost:11111`
+
+When OpenD is running, it automatically becomes the primary data source. If not running, the system falls back to Baostock/akshare/efinance/yfinance.
 
 ### Run
 
@@ -107,15 +117,15 @@ tradingagents/
 
 ### Data Sources
 
-All free. No registration needed.
+All free. No registration needed. Futu OpenD recommended for best speed.
 
-| Market | Primary | Secondary | Special |
-|--------|---------|-----------|---------|
-| A-Share | Baostock | efinance | akshare (dragon tiger, lockup) |
-| Hong Kong | efinance | yfinance | — |
-| US | yfinance | efinance | — |
+| Market | Primary | Secondary | Tertiary | Fallback |
+|--------|---------|-----------|----------|----------|
+| A-Share | Futu | Baostock | efinance | yfinance |
+| Hong Kong | Futu | akshare | efinance | yfinance |
+| US | Futu | akshare | efinance | yfinance |
 
-Each endpoint: 3-level fallback → schema validation → exponential backoff retry → local Parquet cache.
+Futu OpenD must be running locally. If not, the chain auto-falls back.
 
 ### LLM
 

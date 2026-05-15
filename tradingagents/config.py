@@ -39,6 +39,7 @@ class Settings(BaseSettings):
 
     # ---- pipeline ----
     analysis_depth: str = "medium"  # "light" | "medium" | "deep"
+    data_window: int = 120  # number of trading days to look back for analysis
     max_debate_rounds: int = 1
     max_risk_discuss_rounds: int = 1
     max_recur_limit: int = 100

@@ -63,7 +63,7 @@ st.markdown("""<style>
 </style>""", unsafe_allow_html=True)
 
 # ── Pipeline runner (background thread) ─────────────────────────────────
-def _run_pipeline(symbol: str, trade_date: str, market: str, depth: str):
+def _run_pipeline(symbol: str, trade_date: str, market: str, depth: str, data_window: int):
     from tradingagents.config import reset_settings
     from tradingagents.llm.client import clear_client_cache, reset_token_stats
     from tradingagents.graph.progress import reset_progress, finish
@@ -74,7 +74,7 @@ def _run_pipeline(symbol: str, trade_date: str, market: str, depth: str):
     p.symbol = symbol; p.trade_date = trade_date; p.market = market
     try:
         graph = TradingAgentsGraph(debug=False)
-        state, decision = graph.propagate(symbol, trade_date, market=market, depth=depth)
+        state, decision = graph.propagate(symbol, trade_date, market=market, depth=depth, data_window=data_window)
         p2 = finish()
         p2.step_results["__state__"] = state
         p2.step_results["__decision__"] = decision
@@ -168,6 +168,11 @@ def run():
                               format_func=lambda x: {"a_stock": "A-Shares (A股)", "hk_stock": "Hong Kong (港股)", "us_stock": "US (美股)"}[x],
                               label_visibility="collapsed")
 
+        st.markdown('<div class="ig-label">Data Window</div>', unsafe_allow_html=True)
+        data_window = st.selectbox("window_select", [30, 60, 120, 250], index=2,
+                                   format_func=lambda x: f"{x} trading days ({x//21}月)",
+                                   label_visibility="collapsed")
+
         st.markdown('<div class="ig-label">Analysis Depth</div>', unsafe_allow_html=True)
         depth = st.selectbox("depth_select", ["light", "medium", "deep"], index=1,
                              format_func=lambda x: {"light": "Light (5 steps, ~2 min)", "medium": "Medium (13 steps, ~8 min)", "deep": "Deep (16 steps, ~12 min)"}[x],
@@ -180,7 +185,7 @@ def run():
             st.session_state._done = False
             st.session_state._from_cache = False
             st.session_state._cached_result = None
-            t = threading.Thread(target=_run_pipeline, args=(symbol, trade_date, market, depth), daemon=True)
+            t = threading.Thread(target=_run_pipeline, args=(symbol, trade_date, market, depth, data_window), daemon=True)
             t.start()
             st.session_state._thread = t
             st.rerun()
@@ -233,6 +238,47 @@ def run():
                 st.markdown(f'<div class="mc"><div class="mcl">{label}</div><div class="mcv">{value:.2f}</div></div>', unsafe_allow_html=True)
             else:
                 st.markdown(f'<div class="mc"><div class="mcl">{label}</div><div class="mcv">{value}</div></div>', unsafe_allow_html=True)
+
+    # ═══ K-line chart ═══
+    try:
+        from tradingagents.data import a_stock, hk_stock, us_stock
+        mod = {"a_stock": a_stock, "hk_stock": hk_stock, "us_stock": us_stock}.get(market, a_stock)
+        end = pd.Timestamp.now().strftime("%Y-%m-%d")
+        start = (pd.Timestamp.now() - pd.Timedelta(days=120)).strftime("%Y-%m-%d")
+        kdf = mod.get_kline_daily(symbol, start, end)
+        if not kdf.empty:
+            import plotly.graph_objects as go
+            kdf = kdf.tail(120).copy()
+            kdf["date"] = pd.to_datetime(kdf["date"])
+            for c in ("open","high","low","close","volume"):
+                if c in kdf.columns:
+                    kdf[c] = pd.to_numeric(kdf[c], errors="coerce")
+            kdf = kdf.dropna(subset=["open","high","low","close"])
+
+            fig = go.Figure()
+            fig.add_trace(go.Candlestick(
+                x=kdf["date"], open=kdf["open"], high=kdf["high"],
+                low=kdf["low"], close=kdf["close"],
+                name="Price", increasing_line_color="#059669", decreasing_line_color="#dc2626",
+            ))
+            fig.add_trace(go.Bar(
+                x=kdf["date"], y=kdf["volume"], name="Volume",
+                marker_color="rgba(37,99,235,0.3)", yaxis="y2",
+            ))
+            fig.update_layout(
+                title=f"{symbol} {info.get('name', '')}",
+                xaxis_title="", yaxis_title="Price (¥)",
+                template="plotly_white",
+                height=400,
+                margin=dict(l=0, r=0, t=40, b=0),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                xaxis_rangeslider_visible=False,
+                yaxis2=dict(title="", overlaying="y", side="right", showgrid=False, visible=False),
+                hovermode="x unified",
+            )
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+    except Exception:
+        pass
 
     st.divider()
 

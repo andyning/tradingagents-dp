@@ -44,9 +44,11 @@ def for_market_analyst(state: dict[str, Any]) -> str:
 
     parts = ["## 真实市场数据 (REAL DATA — 你必须使用以下数据，禁止编造)\n"]
 
-    # K-line: 90 days before trade_date
+    # K-line: data_window trading days before trade_date
+    window = state.get("data_window", 120)
     try:
-        start = pd.Timestamp(trade_date) - pd.Timedelta(days=120)
+        # Convert trading days to calendar days (approx 1.4x for weekends/holidays)
+        start = pd.Timestamp(trade_date) - pd.Timedelta(days=int(window * 1.6))
         df = mod.get_kline_daily(symbol, start.strftime("%Y-%m-%d"), trade_date)
         if not df.empty:
             parts.append(f"### K线数据 (最近 {len(df)} 个交易日)")
@@ -168,7 +170,8 @@ def for_fundamentals_analyst(state: dict[str, Any]) -> str:
 
     try:
         # K-line has PE/PB in the last row for A-stock (Baostock)
-        start = pd.Timestamp(trade_date) - pd.Timedelta(days=30)
+        window = state.get("data_window", 120)
+        start = pd.Timestamp(trade_date) - pd.Timedelta(days=min(window, 60))
         df = mod.get_kline_daily(symbol, start.strftime("%Y-%m-%d"), trade_date)
         if not df.empty:
             last = df.iloc[-1]

@@ -41,6 +41,7 @@ class AgentState(TypedDict):
     company_of_interest: Annotated[str, "Stock symbol being analyzed"]
     trade_date: Annotated[str, "Analysis date (YYYY-MM-DD)"]
     market: Annotated[str, "Market: a_stock, hk_stock, us_stock"]
+    data_window: Annotated[int, "Number of trading days to look back"]
 
     # Messages (LangGraph built-in)
     messages: Annotated[list[Any], add_messages]

@@ -52,6 +52,7 @@ class TradingAgentsGraph:
         trade_date: str,
         market: str = "a_stock",
         depth: str = "medium",
+        data_window: int = 120,
         selected_analysts: list[str] | None = None,
         past_context: str = "",
     ) -> tuple[dict[str, Any], str]:
@@ -75,6 +76,7 @@ class TradingAgentsGraph:
             "company_of_interest": ticker,
             "trade_date": trade_date,
             "market": market,
+            "data_window": data_window,
             "messages": [],
             "sender": "",
             "market_report": "",

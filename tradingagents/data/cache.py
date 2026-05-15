@@ -53,6 +53,10 @@ def get_cached(
         df = pd.read_parquet(path)
         if df.empty:
             return None
+        # Check for cache miss marker
+        if "__miss__" in df.columns:
+            logger.debug("Cache miss (negative): %s", endpoint)
+            return None
         logger.debug("Cache hit: %s (%d rows)", endpoint, len(df))
         return df
     except Exception:
@@ -66,8 +70,6 @@ def set_cached(
     df: pd.DataFrame,
 ) -> None:
     """Store a DataFrame in the cache."""
-    if df.empty:
-        return
     key = _cache_key(symbol, endpoint, params or {})
     path = _cache_path(key)
     try:
@@ -75,6 +77,21 @@ def set_cached(
         logger.debug("Cached: %s (%d rows)", endpoint, len(df))
     except Exception as exc:
         logger.warning("Failed to write cache: %s", exc)
+
+
+def set_cache_miss(
+    symbol: str,
+    endpoint: str,
+    params: dict[str, Any] | None,
+    ttl_hours: int = 1,
+) -> None:
+    """Record a cache miss — avoid retrying failed sources repeatedly."""
+    key = _cache_key(symbol, endpoint, params or {})
+    path = _cache_path(key)
+    try:
+        pd.DataFrame({"__miss__": [True]}).to_parquet(path, index=False)
+    except Exception:
+        pass
 
 
 def invalidate(symbol: str, endpoint: str | None = None) -> None:

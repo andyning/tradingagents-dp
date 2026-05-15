@@ -13,7 +13,7 @@ from typing import Any, Callable, TypeVar
 import pandas as pd
 from pydantic import BaseModel, ValidationError
 
-from tradingagents.data.cache import get_cached, set_cached
+from tradingagents.data.cache import get_cached, set_cache_miss, set_cached
 from tradingagents.exceptions import AllSourcesExhausted, DataSourceError, SchemaValidationError
 from tradingagents.logging import get_logger
 
@@ -99,6 +99,9 @@ def with_fallback(
         # Source exhausted — try next
         logger.warning("[%s] %s exhausted, trying next source", source_name, endpoint)
 
+    # Cache the miss so we don't retry every analyst
+    if cache:
+        set_cache_miss(symbol, endpoint, params)
     raise AllSourcesExhausted(
         f"{endpoint} for {symbol}"
     ) from last_error

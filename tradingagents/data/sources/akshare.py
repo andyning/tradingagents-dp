@@ -1,12 +1,8 @@
-"""akshare data source — A-stock special data only.
+"""akshare data source — A-stock special data + US stock fallback.
 
-Used only for endpoints that other free sources don't provide:
-- Dragon Tiger Board (龙虎榜)
-- Lockup Expiry (限售解禁)
-- Insider Transactions (股东增减持)
-
-akshare is scraping-based and can be unstable; these endpoints are
-only invoked when the primary sources return empty data.
+Provides:
+- Dragon Tiger Board (龙虎榜), Lockup Expiry, Insider Transactions (A-stock only)
+- US stock K-line via eastmoney (works in China, no VPN needed)
 """
 
 from __future__ import annotations
@@ -159,6 +155,43 @@ class AkshareSource(DataSource):
             return pd.DataFrame()
 
     # ---- Remaining methods return empty (not supported) ----
+
+    # ---- US Stock K-line ----
+    def us_kline_daily(
+        self, symbol: str, start_date: str, end_date: str, adjust: str = "qfq"
+    ) -> pd.DataFrame:
+        """Fetch US stock K-line via akshare eastmoney (works in China)."""
+        try:
+            import akshare as ak
+            adj = {"qfq": "qfq", "hfq": "hfq", "none": ""}.get(adjust, "qfq")
+            sd = start_date.replace("-", "")
+            ed = end_date.replace("-", "")
+            # Try NASDAQ (105) first, then NYSE (106)
+            for ex in ("105", "106"):
+                try:
+                    df = ak.stock_us_hist(
+                        symbol=f"{ex}.{symbol.strip().upper()}",
+                        period="daily", start_date=sd, end_date=ed, adjust=adj,
+                    )
+                    if df is not None and not df.empty:
+                        col_map = {
+                            "日期": "date", "开盘": "open", "收盘": "close",
+                            "最高": "high", "最低": "low", "成交量": "volume",
+                            "成交额": "amount", "涨跌幅": "change_pct", "换手率": "turn",
+                        }
+                        df = df.rename(columns=col_map)
+                        df["symbol"] = symbol
+                        if "date" in df.columns:
+                            df["date"] = pd.to_datetime(df["date"]).dt.date
+                        for col in ("open","high","low","close","volume","amount","change_pct","turn"):
+                            if col in df.columns:
+                                df[col] = pd.to_numeric(df[col], errors="coerce")
+                        return df
+                except Exception:
+                    continue
+            return pd.DataFrame()
+        except Exception:
+            return pd.DataFrame()
 
     def kline_weekly(self, symbol: str, start_date: str, end_date: str, adjust: str = "qfq") -> pd.DataFrame:
         return pd.DataFrame()

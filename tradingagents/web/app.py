@@ -7,9 +7,14 @@ from __future__ import annotations
 
 import threading
 import time
+import warnings
 
 import pandas as pd
 import streamlit as st
+
+warnings.filterwarnings("ignore", category=ResourceWarning)
+warnings.filterwarnings("ignore", message=".*unclosed database.*")
+warnings.filterwarnings("ignore", message=".*unclosed .*socket.*")
 
 st.set_page_config(page_title="TradingAgents", page_icon="", layout="wide", initial_sidebar_state="expanded")
 

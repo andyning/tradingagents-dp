@@ -28,7 +28,6 @@ dependencies = [
     "akshare>=1.18.0",
     "yfinance>=0.2.0",
     "futu-api>=6.0.0",
-    "chromadb>=0.4.0",
 
     # ---- Backtesting ----
     "backtrader>=1.9.78.123",

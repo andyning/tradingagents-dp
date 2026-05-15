@@ -72,6 +72,13 @@ class TradingAgentsGraph:
         if selected_analysts is None:
             selected_analysts = ["market", "social", "news", "fundamentals", "policy", "hot_money", "lockup"]
 
+        # Retrieve past analysis memories BEFORE building init_state
+        from tradingagents.graph.memory_store import get_memory_context
+        memory_context = get_memory_context(ticker, market)
+        if memory_context:
+            logger.info("Memory: loaded past analyses for %s", ticker)
+        merged_context = memory_context or past_context
+
         init_state: AgentState = {
             "company_of_interest": ticker,
             "trade_date": trade_date,
@@ -112,7 +119,7 @@ class TradingAgentsGraph:
             "final_trade_decision": "",
             "past_context": past_context,
             "selected_analysts": selected_analysts,
-            "past_context": memory_context if memory_context else past_context,
+            "past_context": merged_context,
         }
 
         # Rebuild graph if depth changed
@@ -123,13 +130,6 @@ class TradingAgentsGraph:
         # Reset progress for this depth
         from tradingagents.graph.progress import reset_progress
         reset_progress(depth)
-
-        # Retrieve past analysis memories for this ticker
-        from tradingagents.graph.memory_store import get_memory_context
-        memory_context = get_memory_context(ticker, market)
-        if memory_context:
-            logger.info("Memory: loaded %d past analyses for %s",
-                        memory_context.count("**20") + memory_context.count("**202"), ticker)
 
         logger.info("Starting pipeline for %s on %s (market=%s, depth=%s)", ticker, trade_date, market, depth)
 

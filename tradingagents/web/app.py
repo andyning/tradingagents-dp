@@ -400,15 +400,18 @@ def run():
 
         st.markdown(f'<span class="badge badge-{rating}">{rating}</span>', unsafe_allow_html=True)
 
-        tabs = st.tabs(["Dashboard", "Market/Tech", "Sentiment", "News", "Fundamentals",
-                         "Policy", "Hot Money", "Lockup", "Invest Plan", "Trader Plan"])
+        tab_labels = [
+            "Dashboard 总览", "Market 技术", "Sentiment 舆情", "News 新闻", "Fundamentals 基本面",
+            "Policy 政策", "Hot Money 资金", "Lockup 解禁", "Invest Plan 投资计划", "Trader Plan 交易方案",
+        ]
+        tabs = st.tabs(tab_labels)
 
         report_keys = [
-            ("Market/Tech", "market_report"), ("Sentiment", "sentiment_report"),
-            ("News", "news_report"), ("Fundamentals", "fundamentals_report"),
-            ("Policy", "policy_report"), ("Hot Money", "hot_money_report"),
-            ("Lockup", "lockup_report"), ("Invest Plan", "investment_plan"),
-            ("Trader Plan", "trader_investment_plan"),
+            ("Market/Tech 技术分析", "market_report"), ("Sentiment 舆情分析", "sentiment_report"),
+            ("News 新闻分析", "news_report"), ("Fundamentals 基本面分析", "fundamentals_report"),
+            ("Policy 政策分析", "policy_report"), ("Hot Money 资金分析", "hot_money_report"),
+            ("Lockup 解禁分析", "lockup_report"), ("Invest Plan 投资计划", "investment_plan"),
+            ("Trader Plan 交易方案", "trader_investment_plan"),
         ]
 
         # ── Tab 0: Dashboard ──

@@ -54,22 +54,22 @@ STEPS_DEEP = [
 ]
 
 STEP_LABELS = {
-    "market_analyst": "Market / Technical Analysis",
-    "social_analyst": "Social Sentiment",
-    "news_analyst": "News & Macro",
-    "fundamentals_analyst": "Fundamentals",
-    "policy_analyst": "Policy Analysis",
-    "hot_money_analyst": "Hot Money / Flow",
-    "lockup_analyst": "Lockup / Insider",
-    "quality_gate": "Quality Gate",
-    "bull_researcher": "Bull Analyst",
-    "bear_researcher": "Bear Analyst",
-    "research_manager": "Research Manager",
-    "trader": "Trader",
-    "aggressive_risk": "Aggressive Risk",
-    "conservative_risk": "Conservative Risk",
-    "neutral_risk": "Neutral Risk",
-    "portfolio_manager": "Portfolio Manager",
+    "market_analyst": "Market/Tech 技术分析",
+    "social_analyst": "Sentiment 舆情分析",
+    "news_analyst": "News 新闻分析",
+    "fundamentals_analyst": "Fundamentals 基本面分析",
+    "policy_analyst": "Policy 政策分析",
+    "hot_money_analyst": "Hot Money 资金分析",
+    "lockup_analyst": "Lockup 解禁分析",
+    "quality_gate": "Quality Gate 质量把关",
+    "bull_researcher": "Bull 多方研究员",
+    "bear_researcher": "Bear 空方研究员",
+    "research_manager": "Research Mgr 研究经理",
+    "trader": "Trader 交易员",
+    "aggressive_risk": "Aggressive 激进风控",
+    "conservative_risk": "Conservative 保守风控",
+    "neutral_risk": "Neutral 中立风控",
+    "portfolio_manager": "PM 投资经理",
 }
 
 DEPTH_STEPS = {"light": STEPS_LIGHT, "medium": STEPS_MEDIUM, "deep": STEPS_DEEP}

@@ -58,9 +58,10 @@ st.markdown("""<style>
     section[data-testid="stSidebar"] input[type="text"],
     section[data-testid="stSidebar"] [data-baseweb="select"],
     section[data-testid="stSidebar"] [data-testid="stDateInput"] input {
-        border: 1.5px solid rgba(255,255,255,.4) !important; border-radius: 6px !important; background: rgba(255,255,255,.12) !important; color: #fff !important;
+        border: 1.5px solid rgba(255,255,255,.4) !important; border-radius: 6px !important; background: #fff !important; color: #111827 !important;
     }
-    section[data-testid="stSidebar"] input[type="text"]::placeholder { color: rgba(255,255,255,.5) !important; }
+    section[data-testid="stSidebar"] input[type="text"]::placeholder { color: #9ca3af !important; }
+    section[data-testid="stSidebar"] [data-baseweb="select"] * { color: #111827 !important; }
     /* Run button: Prussian blue */
     section[data-testid="stSidebar"] button[kind="primary"] {
         background: #0D3869 !important; border-color: #0D3869 !important; color: #fff !important;

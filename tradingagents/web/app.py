@@ -98,7 +98,7 @@ def _run_pipeline(symbol: str, trade_date: str, market: str, depth: str, data_wi
 
 # ── Stock info + K-line (single fetch, cached) ────────────────────────
 @st.cache_data(show_spinner=False, ttl=1800)
-def _fetch_stock_data(symbol: str, market: str, days: int = 30):
+def _fetch_stock_data(symbol: str, market: str, days: int = 30, _refresh: int = 0):
     """Return (info_dict, kline_dataframe). Single network call for both."""
     try:
         from tradingagents.data import a_stock, hk_stock, us_stock
@@ -154,6 +154,7 @@ def run():
     if "_running" not in st.session_state: st.session_state._running = False
     if "_done" not in st.session_state: st.session_state._done = False
     if "_thread" not in st.session_state: st.session_state._thread = None
+    if "_refresh_key" not in st.session_state: st.session_state._refresh_key = 0
     if "_from_cache" not in st.session_state: st.session_state._from_cache = False
     if "_cached_result" not in st.session_state: st.session_state._cached_result = None
     if "_cached_symbol" not in st.session_state: st.session_state._cached_symbol = ""
@@ -229,9 +230,22 @@ def run():
             st.session_state._from_cache = True
 
     # ═══ MAIN ═══
-    info, kline_df = _fetch_stock_data(symbol, market)
+    import datetime as _dt
+    info, kline_df = _fetch_stock_data(symbol, market, _refresh=st.session_state._refresh_key)
 
-    # Stock header
+    # Stock header + refresh
+    rcol1, rcol2 = st.columns([20, 1])
+    with rcol1:
+        st.caption(f"Data as of {_dt.datetime.now().strftime('%H:%M:%S')} · 30 min cache")
+    with rcol2:
+        st.markdown("""
+        <style>
+        .refresh-btn button { font-size: 0.8rem !important; padding: 2px 8px !important; border-radius: 4px !important; }
+        </style>
+        """, unsafe_allow_html=True)
+        if st.button("Refresh", help="Refresh stock data & K-line chart"):
+            st.session_state._refresh_key += 1
+            st.rerun()
     cols = st.columns(7)
     items = [
         ("Symbol", symbol),

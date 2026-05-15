@@ -9,7 +9,6 @@ Supports A-shares (SH/SZ), HK stocks, and US stocks.
 
 from __future__ import annotations
 
-import threading
 import time
 from datetime import date
 
@@ -41,39 +40,24 @@ class FutuSource(DataSource):
 
     def __init__(self, market: str = "a_stock"):
         self.market = market
-        self._ctx = None
-        self._lock = threading.Lock()
-        self._connected = False
 
-    def _connect(self):
-        if self._connected and self._ctx is not None:
-            return True
-        with self._lock:
-            if self._connected:
-                return True
-            try:
-                from futu import OpenQuoteContext, RET_OK
-                self._ctx = OpenQuoteContext(host="127.0.0.1", port=11111)
-                self._ctx.set_conn_timeout(3)  # 3s timeout — fail fast if OpenD not running
-                self._connected = True
-                logger.debug("Futu OpenD connected")
-                return True
-            except Exception:
-                self._connected = False
-                self._ctx = None
-                return False
-
-    def _disconnect(self):
+    def _get_ctx(self):
+        """Create a fresh OpenQuoteContext. Caller must close it."""
         try:
-            if self._ctx:
-                self._ctx.close()
+            from futu import OpenQuoteContext
+            ctx = OpenQuoteContext(host="127.0.0.1", port=11111)
+            ctx.set_conn_timeout(3)
+            return ctx
+        except Exception:
+            return None
+
+    @staticmethod
+    def _close_ctx(ctx):
+        try:
+            if ctx:
+                ctx.close()
         except Exception:
             pass
-        self._connected = False
-        self._ctx = None
-
-    def __del__(self):
-        self._disconnect()
 
     # ---- K-line ----
 
@@ -95,7 +79,8 @@ class FutuSource(DataSource):
     def _fetch_kline(
         self, symbol: str, start_date: str, end_date: str, ktype: str, adjust: str
     ) -> pd.DataFrame:
-        if not self._connect():
+        ctx = self._get_ctx()
+        if ctx is None:
             return pd.DataFrame()
         try:
             from futu import KLType, AuType
@@ -104,7 +89,7 @@ class FutuSource(DataSource):
             au_map = {"qfq": AuType.QFQ, "hfq": AuType.HFQ, "none": AuType.NONE}
 
             futu_sym = _futu_symbol(symbol, self.market)
-            ret, df, _ = self._ctx.request_history_kline(
+            ret, df, _ = ctx.request_history_kline(
                 futu_sym,
                 start=start_date,
                 end=end_date,
@@ -132,21 +117,26 @@ class FutuSource(DataSource):
         except Exception as exc:
             logger.debug("Futu K-line failed: %s", exc)
             return pd.DataFrame()
+        finally:
+            self._close_ctx(ctx)
 
     # ---- Quote ----
 
     def quote(self, symbol: str) -> pd.DataFrame:
-        if not self._connect():
+        ctx = self._get_ctx()
+        if ctx is None:
             return pd.DataFrame()
         try:
             futu_sym = _futu_symbol(symbol, self.market)
-            ret, df = self._ctx.get_market_snapshot([futu_sym])
+            ret, df = ctx.get_market_snapshot([futu_sym])
             if ret != 0 or df is None or df.empty:
                 return pd.DataFrame()
             df["symbol"] = symbol
             return df
         except Exception:
             return pd.DataFrame()
+        finally:
+            self._close_ctx(ctx)
 
     # ---- Financial summary ----
     def financial_summary(self, symbol: str) -> pd.DataFrame:

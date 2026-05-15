@@ -1,10 +1,12 @@
 """Yahoo Finance data source — US/HK stock primary, A-stock fallback.
 
 Free, no registration. Provides global market data.
-Best for: US stocks, HK stocks. Also works for A-stock as fallback.
+Rate-limited by Yahoo — use with care: minimum 2s between calls.
 """
 
 from __future__ import annotations
+
+import time
 
 import pandas as pd
 
@@ -12,6 +14,19 @@ from tradingagents.data.sources.base import DataSource
 from tradingagents.logging import get_logger
 
 logger = get_logger(__name__)
+
+# Global rate limiter for yfinance
+_last_yf_call: float = 0.0
+_MIN_YF_INTERVAL = 3.0  # seconds between Yahoo Finance API calls
+_TICKER_CACHE: dict[str, object] = {}
+
+
+def _rate_limit_wait():
+    global _last_yf_call
+    elapsed = time.time() - _last_yf_call
+    if elapsed < _MIN_YF_INTERVAL:
+        time.sleep(_MIN_YF_INTERVAL - elapsed)
+    _last_yf_call = time.time()
 
 
 # yfinance symbol format for different markets
@@ -23,7 +38,6 @@ def _yf_symbol(symbol: str, market: str = "a_stock") -> str:
             return f"{s}.SS"
         return f"{s}.SZ"
     elif market == "hk_stock":
-        # HK stocks: pad to 4 digits + .HK
         return f"{s:0>4}.HK"
     elif market == "us_stock":
         return s
@@ -31,7 +45,7 @@ def _yf_symbol(symbol: str, market: str = "a_stock") -> str:
 
 
 class YFinanceSource(DataSource):
-    """Yahoo Finance adapter."""
+    """Yahoo Finance adapter with built-in rate limiting."""
 
     name = "yfinance"
 
@@ -40,7 +54,16 @@ class YFinanceSource(DataSource):
 
     def _ticker(self, symbol: str):
         import yfinance as yf
-        return yf.Ticker(_yf_symbol(symbol, self.market))
+        yf_sym = _yf_symbol(symbol, self.market)
+        if yf_sym not in _TICKER_CACHE:
+            _rate_limit_wait()
+            _TICKER_CACHE[yf_sym] = yf.Ticker(yf_sym)
+        return _TICKER_CACHE[yf_sym]
+
+    def _try_history(self, ticker, start_date, end_date, **kwargs):
+        """Call ticker.history() with rate limiting."""
+        _rate_limit_wait()
+        return ticker.history(start=start_date, end=end_date, **kwargs)
 
     # ---- K-line ----
 
@@ -49,7 +72,7 @@ class YFinanceSource(DataSource):
     ) -> pd.DataFrame:
         try:
             t = self._ticker(symbol)
-            df = t.history(start=start_date, end=end_date)
+            df = self._try_history(t, start_date, end_date)
             if df.empty:
                 return pd.DataFrame()
             df = df.reset_index()
@@ -73,7 +96,7 @@ class YFinanceSource(DataSource):
     ) -> pd.DataFrame:
         try:
             t = self._ticker(symbol)
-            df = t.history(start=start_date, end=end_date, interval="1wk")
+            df = self._try_history(t, start_date, end_date, interval="1wk")
             if df.empty:
                 return pd.DataFrame()
             df = df.reset_index()
@@ -93,7 +116,7 @@ class YFinanceSource(DataSource):
     ) -> pd.DataFrame:
         try:
             t = self._ticker(symbol)
-            df = t.history(start=start_date, end=end_date, interval="1mo")
+            df = self._try_history(t, start_date, end_date, interval="1mo")
             if df.empty:
                 return pd.DataFrame()
             df = df.reset_index()
@@ -113,6 +136,7 @@ class YFinanceSource(DataSource):
     def quote(self, symbol: str) -> pd.DataFrame:
         try:
             t = self._ticker(symbol)
+            _rate_limit_wait()
             info = t.info
             if not info:
                 return pd.DataFrame()

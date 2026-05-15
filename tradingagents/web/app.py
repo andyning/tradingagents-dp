@@ -124,15 +124,20 @@ def _fetch_stock_data(symbol: str, market: str, days: int = 30, _refresh: int = 
                     info[k] = float(pd.to_numeric(last[k], errors="coerce"))
                 except Exception:
                     info[k] = None
-        try:
-            from tradingagents.data.sources.efinance import EfinanceSource
-            q = EfinanceSource().quote(symbol)
-            if not q.empty:
-                for c in q.columns:
-                    if "名称" in str(c) or "name" in str(c).lower():
-                        info["name"] = str(q.iloc[0][c]); break
-        except Exception:
-            pass
+        # Get display name: only for A-stock/HK via efinance; US stocks use ticker as name
+        if market in ("a_stock", "hk_stock"):
+            try:
+                from tradingagents.data.sources.efinance import EfinanceSource
+                q = EfinanceSource().quote(symbol)
+                if not q.empty:
+                    for c in q.columns:
+                        if "名称" in str(c) or "name" in str(c).lower():
+                            name_val = str(q.iloc[0][c])
+                            # Validate: name should not be gibberish or a different ticker
+                            if name_val and name_val != symbol and len(name_val) < 20:
+                                info["name"] = name_val; break
+            except Exception:
+                pass
         return info, df
     except Exception:
         return {"symbol": symbol, "market": market, "name": symbol}, pd.DataFrame()

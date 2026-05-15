@@ -389,19 +389,50 @@ def run():
             st.markdown('<div style="margin-top:12px"></div>', unsafe_allow_html=True)
             with st.container():
                 st.markdown('<div class="dash-panel"><h4>Final Decision</h4></div>', unsafe_allow_html=True)
-                # Parse decision into clean table
+                # Parse decision into clean table — handle both markdown and JSON fallback
+                import json as _json
                 fields = {}
-                for line in decision.split("\n"):
-                    line = line.strip()
-                    if line.startswith("**") and "**" in line[2:]:
-                        key_end = line.index("**", 2) + 2
-                        key = line[2:key_end-2].strip().rstrip(":")
-                        value = line[key_end:].strip().lstrip(":").strip()
-                        if value:
+                # Try JSON fallback format first
+                if decision.strip().startswith("{"):
+                    try:
+                        data = _json.loads(decision.strip().replace("'", '"'))
+                        key_map = {
+                            "rating": "Rating", "confidence": "Confidence",
+                            "reasoning": "Reasoning", "risk_assessment": "Risk Assessment",
+                            "position_advice": "Position Advice", "time_horizon": "Time Horizon",
+                        }
+                        for k, v in data.items():
+                            if isinstance(v, str) and len(v) > 3:
+                                fields[key_map.get(k, k.title())] = v
+                            elif not isinstance(v, (dict, list)):
+                                fields[key_map.get(k, k.title())] = str(v)
+                    except Exception:
+                        pass
+                # Try markdown format: **Key**: value
+                if not fields:
+                    for line in decision.split("\n"):
+                        line = line.strip()
+                        if line.startswith("**") and ":**" in line:
+                            # **Key**: value on same line
+                            parts = line.split(":**", 1)
+                            key = parts[0].replace("**", "").strip()
+                            value = parts[1].strip()
+                            if value:
+                                fields[key] = value
+                        elif line.startswith("**") and line.endswith("**"):
+                            # **Key** on its own line — value on next non-empty line
+                            pass  # handled below
+                # Fallback: just show first 3 meaningful paragraphs
+                if not fields:
+                    parts = [p.strip() for p in decision.split("\n\n") if len(p.strip()) > 20]
+                    for i, p in enumerate(parts[:5]):
+                        key = p.split("\n")[0].replace("**", "").strip()[:60]
+                        value = "\n".join(p.split("\n")[1:]).strip()[:300] if "\n" in p else p
+                        if len(value) > 10:
                             fields[key] = value
                 if fields:
                     rows = "".join(
-                        f'<tr><td style="padding:8px 16px;color:#6b7280;font-weight:600;white-space:nowrap;border-bottom:1px solid #f1f5f9">{k}</td>'
+                        f'<tr><td style="padding:8px 16px;color:#6b7280;font-weight:600;white-space:nowrap;border-bottom:1px solid #f1f5f9;vertical-align:top">{k}</td>'
                         f'<td style="padding:8px 16px;color:#111827;border-bottom:1px solid #f1f5f9">{v}</td></tr>'
                         for k, v in fields.items()
                     )

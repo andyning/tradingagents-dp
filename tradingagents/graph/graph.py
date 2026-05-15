@@ -112,6 +112,7 @@ class TradingAgentsGraph:
             "final_trade_decision": "",
             "past_context": past_context,
             "selected_analysts": selected_analysts,
+            "past_context": memory_context if memory_context else past_context,
         }
 
         # Rebuild graph if depth changed
@@ -122,6 +123,13 @@ class TradingAgentsGraph:
         # Reset progress for this depth
         from tradingagents.graph.progress import reset_progress
         reset_progress(depth)
+
+        # Retrieve past analysis memories for this ticker
+        from tradingagents.graph.memory_store import get_memory_context
+        memory_context = get_memory_context(ticker, market)
+        if memory_context:
+            logger.info("Memory: loaded %d past analyses for %s",
+                        memory_context.count("**20") + memory_context.count("**202"), ticker)
 
         logger.info("Starting pipeline for %s on %s (market=%s, depth=%s)", ticker, trade_date, market, depth)
 
@@ -196,3 +204,18 @@ class TradingAgentsGraph:
         with open(cache_path, "w", encoding="utf-8") as f:
             json.dump(saved, f, indent=2, ensure_ascii=False, default=str)
         logger.info("Cache updated: %s", cache_path)
+
+        # Store in memory for future retrieval
+        from tradingagents.graph.memory_store import store_analysis
+        signal = state.get("structured_decision", {}) if isinstance(state, dict) else {}
+        store_analysis(
+            ticker=ticker, trade_date=trade_date, market=market, depth=depth,
+            decision=state.get("final_trade_decision", "") if isinstance(state, dict) else "",
+            market_report=state.get("market_report", "") if isinstance(state, dict) else "",
+            fundamentals_report=state.get("fundamentals_report", "") if isinstance(state, dict) else "",
+            news_report=state.get("news_report", "") if isinstance(state, dict) else "",
+            action=signal.get("action", "") if isinstance(signal, dict) else "",
+            confidence=signal.get("confidence", 0) if isinstance(signal, dict) else 0,
+            risk_score=signal.get("risk_score", 0) if isinstance(signal, dict) else 0,
+            target_price=signal.get("target_price"),
+        )

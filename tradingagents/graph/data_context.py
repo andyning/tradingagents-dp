@@ -297,3 +297,84 @@ def for_lockup_analyst(state: dict[str, Any]) -> str:
         parts.append("(增减持数据暂不可用)")
 
     return "\n".join(parts)
+
+
+def for_backtest(state: dict[str, Any]) -> str:
+    """Run a lightweight backtest and return a text summary.
+
+    Uses a simple MA crossover strategy (5/20) on up to 250 days
+    of historical data. Provides win rate, return vs buy-and-hold,
+    and max drawdown — enough for the LLM to assess trend-following viability.
+    """
+    symbol = state["company_of_interest"]
+    trade_date = state["trade_date"]
+    market = state.get("market", "a_stock")
+    mod = _get_mod(market)
+
+    try:
+        start = pd.Timestamp(trade_date) - pd.Timedelta(days=400)
+        df = mod.get_kline_daily(symbol, start.strftime("%Y-%m-%d"), trade_date)
+        if df.empty or len(df) < 60:
+            return "## 历史回测\n(历史数据不足，无法进行回测)\n"
+
+        close = pd.to_numeric(df["close"], errors="coerce").dropna()
+        if len(close) < 60:
+            return "## 历史回测\n(历史数据不足，无法进行回测)\n"
+
+        ma5 = close.rolling(5).mean()
+        ma20 = close.rolling(20).mean()
+        signal = (ma5 > ma20).astype(int).diff().fillna(0)
+
+        daily_ret = close.pct_change().fillna(0)
+        strategy_ret = daily_ret * ((ma5 > ma20).astype(int).shift(1).fillna(0))
+        bh_ret = daily_ret
+
+        strat_cum = (1 + strategy_ret).cumprod()
+        bh_cum = (1 + bh_ret).cumprod()
+        strat_total = float((strat_cum.iloc[-1] - 1) * 100)
+        bh_total = float((bh_cum.iloc[-1] - 1) * 100)
+
+        strat_peak = strat_cum.cummax()
+        strat_dd = float(((strat_cum / strat_peak - 1).min()) * 100)
+        bh_peak = bh_cum.cummax()
+        bh_dd = float(((bh_cum / bh_peak - 1).min()) * 100)
+
+        wins = 0
+        total_trades = 0
+        in_position = False
+        entry_price = 0.0
+        for i in range(1, len(close)):
+            if signal.iloc[i] == 1 and not in_position:
+                entry_price = close.iloc[i]
+                in_position = True
+                total_trades += 1
+            elif signal.iloc[i] == -1 and in_position:
+                if close.iloc[i] > entry_price:
+                    wins += 1
+                in_position = False
+        win_rate = (wins / total_trades * 100) if total_trades > 0 else 0
+
+        days = len(close)
+        parts = [
+            "## 历史回测 (MA5/20 金叉死叉策略)\n",
+            f"- **回测区间**: {days} 个交易日",
+            f"- **策略累计收益**: {strat_total:+.1f}%",
+            f"- **买入持有收益**: {bh_total:+.1f}%",
+            f"- **策略最大回撤**: {strat_dd:.1f}% (持有: {bh_dd:.1f}%)",
+            f"- **交易次数**: {total_trades} | **胜率**: {win_rate:.0f}%",
+            f"- **Alpha**: {strat_total - bh_total:+.1f}%",
+        ]
+        if strat_total > bh_total and win_rate > 50:
+            parts.append("- **特征**: 趋势跟随有效，MA 交叉策略显著跑赢持有")
+        elif strat_total > bh_total:
+            parts.append("- **特征**: 策略跑赢但胜率偏低，依赖少数大盈利交易")
+        elif win_rate < 50:
+            parts.append("- **特征**: 均线交叉信号可靠性低，价格呈震荡/均值回归特征")
+        else:
+            parts.append("- **特征**: 策略未跑赢持有，趋势跟踪效果一般")
+        parts.append("")
+        return "\n".join(parts)
+
+    except Exception as exc:
+        logger.warning("Backtest summary failed: %s", exc)
+        return "## 历史回测\n(回测计算异常，跳过)\n"

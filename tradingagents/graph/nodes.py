@@ -21,6 +21,7 @@ from tradingagents.agents.schemas import (
 )
 from tradingagents.config import get_settings
 from tradingagents.graph.data_context import (
+    for_backtest,
     for_fundamentals_analyst,
     for_hot_money_analyst,
     for_lockup_analyst,
@@ -105,6 +106,8 @@ def news_analyst_node(state: dict[str, Any]) -> dict[str, Any]:
 
 def fundamentals_analyst_node(state: dict[str, Any]) -> dict[str, Any]:
     data = for_fundamentals_analyst(state)
+    backtest = for_backtest(state)
+    data = data + "\n\n" + backtest
     content = _run_analyst("fundamentals_analyst", "fundamentals_analyst.j2", state, data)
     logger.info("Fundamentals analyst completed (%d chars)", len(content))
     return {"fundamentals_report": content, "sender": "fundamentals_analyst"}

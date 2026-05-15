@@ -1,14 +1,13 @@
-"""Launch script for tradingagents-web — invokes streamlit run."""
+"""Launch script for tradingagents-web — replaces current process with streamlit."""
 
-import subprocess
+import os
 import sys
 from pathlib import Path
 
 
 def main():
     app_path = Path(__file__).parent / "app.py"
-    args = [sys.executable, "-m", "streamlit", "run", str(app_path), *sys.argv[1:]]
-    subprocess.run(args)
+    os.execv(sys.executable, [sys.executable, "-m", "streamlit", "run", str(app_path), *sys.argv[1:]])
 
 
 if __name__ == "__main__":

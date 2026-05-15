@@ -75,10 +75,10 @@ st.markdown("""<style>
         background: #0a2d55 !important; border-color: #0a2d55 !important;
     }
     header, footer, #MainMenu { visibility: hidden; }
-    /* Refresh button — clean outlined style */
+    /* Refresh button — match Prussian blue */
     .stButton button { border-radius: 6px !important; font-size: 0.78rem !important; padding: 4px 12px !important;
-        color: #6b7280 !important; border: 1px solid #e5e7eb !important; background: #fff !important; font-weight: 500 !important; }
-    .stButton button:hover { color: #2563eb !important; border-color: #2563eb !important; background: #f0f5ff !important; }
+        color: #fff !important; border: 1px solid #0D3869 !important; background: #0D3869 !important; font-weight: 500 !important; }
+    .stButton button:hover { background: #0a2d55 !important; border-color: #0a2d55 !important; }
     header, footer, #MainMenu { visibility: hidden; }
 </style>""", unsafe_allow_html=True)
 

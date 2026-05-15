@@ -71,7 +71,7 @@ async def analyze(req: AnalysisRequest):
     """Run the full multi-agent analysis pipeline for a stock."""
     try:
         graph = TradingAgentsGraph(debug=req.debug)
-        state, decision = graph.propagate(req.symbol, req.trade_date, market=req.market)
+        state, decision, _ = graph.propagate(req.symbol, req.trade_date, market=req.market)
 
         rating = _extract_rating(decision)
 

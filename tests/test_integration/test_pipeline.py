@@ -26,7 +26,7 @@ class TestFullPipeline:
     def test_pipeline_a_stock(self):
         """Run full pipeline on 贵州茅台 (600519)."""
         graph = TradingAgentsGraph(debug=False)
-        state, decision = graph.propagate(
+        state, decision, _ = graph.propagate(
             "600519",
             "2025-05-14",
             market="a_stock",
@@ -72,7 +72,7 @@ class TestFullPipeline:
     def test_pipeline_debate_state(self):
         """Verify debate state is populated correctly."""
         graph = TradingAgentsGraph(debug=False)
-        state, decision = graph.propagate(
+        state, decision, _ = graph.propagate(
             "000001",
             "2025-05-14",
             market="a_stock",
@@ -91,7 +91,7 @@ class TestFullPipeline:
     def test_pipeline_hk_stock(self):
         """Run pipeline on a HK stock — Tencent (0700.HK)."""
         graph = TradingAgentsGraph(debug=False)
-        state, decision = graph.propagate(
+        state, decision, _ = graph.propagate(
             "0700",
             "2025-05-14",
             market="hk_stock",

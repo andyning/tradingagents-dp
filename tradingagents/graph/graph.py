@@ -138,11 +138,17 @@ class TradingAgentsGraph:
             final_state = self.graph.invoke(init_state)
 
         decision = final_state.get("final_trade_decision", "")
+
+        # Structured signal extraction
+        from tradingagents.graph.signal_processor import extract_decision
+        signal = extract_decision(decision, symbol=ticker, market=market)
+        final_state["structured_decision"] = signal
+
         self._save_result(ticker, trade_date, depth, market, final_state)
 
-        logger.info("Pipeline complete for %s: decision=%s",
-                     ticker, self._extract_rating(decision))
-        return final_state, decision
+        logger.info("Pipeline complete for %s: rating=%s confidence=%.2f",
+                     ticker, signal["action"], signal["confidence"])
+        return final_state, decision, signal
 
     @staticmethod
     def _extract_rating(decision: str) -> str:

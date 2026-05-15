@@ -56,7 +56,7 @@ def analyze(
             task = progress.add_task("Running analysis pipeline...", total=None)
 
             graph = TradingAgentsGraph(debug=debug)
-            state, decision = graph.propagate(symbol, date, market=market)
+            state, decision, _ = graph.propagate(symbol, date, market=market)
 
             progress.remove_task(task)
 

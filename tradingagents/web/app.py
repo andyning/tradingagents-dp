@@ -96,14 +96,15 @@ def _run_pipeline(symbol: str, trade_date: str, market: str, depth: str, data_wi
     except Exception as exc:
         finish(error=str(exc))
 
-# ── Stock info ──────────────────────────────────────────────────────────
+# ── Stock info + K-line (single fetch, cached) ────────────────────────
 @st.cache_data(show_spinner=False, ttl=1800)
-def _fetch_stock_info(symbol: str, market: str) -> dict:
+def _fetch_stock_data(symbol: str, market: str, days: int = 120):
+    """Return (info_dict, kline_dataframe). Single network call for both."""
     try:
         from tradingagents.data import a_stock, hk_stock, us_stock
         mod = {"a_stock": a_stock, "hk_stock": hk_stock, "us_stock": us_stock}.get(market, a_stock)
         end = pd.Timestamp.now().strftime("%Y-%m-%d")
-        start = (pd.Timestamp.now() - pd.Timedelta(days=10)).strftime("%Y-%m-%d")
+        start = (pd.Timestamp.now() - pd.Timedelta(days=int(days * 1.6))).strftime("%Y-%m-%d")
         df = mod.get_kline_daily(symbol, start, end)
         info = {"symbol": symbol, "market": market, "name": symbol}
         if not df.empty:
@@ -122,9 +123,9 @@ def _fetch_stock_info(symbol: str, market: str) -> dict:
                         info["name"] = str(q.iloc[0][c]); break
         except Exception:
             pass
-        return info
+        return info, df
     except Exception:
-        return {"symbol": symbol, "market": market, "name": symbol}
+        return {"symbol": symbol, "market": market, "name": symbol}, pd.DataFrame()
 
 # ── Cache helpers ───────────────────────────────────────────────────────
 def _cache_path(symbol: str, depth: str) -> Path:
@@ -228,7 +229,7 @@ def run():
             st.session_state._from_cache = True
 
     # ═══ MAIN ═══
-    info = _fetch_stock_info(symbol, market)
+    info, kline_df = _fetch_stock_data(symbol, market)
 
     # Stock header
     cols = st.columns(7)
@@ -255,15 +256,10 @@ def run():
                 st.markdown(f'<div class="mc"><div class="mcl">{label}</div><div class="mcv">{value}</div></div>', unsafe_allow_html=True)
 
     # ═══ K-line chart ═══
-    try:
-        from tradingagents.data import a_stock, hk_stock, us_stock
-        mod = {"a_stock": a_stock, "hk_stock": hk_stock, "us_stock": us_stock}.get(market, a_stock)
-        end = pd.Timestamp.now().strftime("%Y-%m-%d")
-        start = (pd.Timestamp.now() - pd.Timedelta(days=120)).strftime("%Y-%m-%d")
-        kdf = mod.get_kline_daily(symbol, start, end)
-        if not kdf.empty:
+    if not kline_df.empty:
+        try:
             import plotly.graph_objects as go
-            kdf = kdf.tail(120).copy()
+            kdf = kline_df.tail(120).copy()
             kdf["date"] = pd.to_datetime(kdf["date"])
             for c in ("open","high","low","close","volume"):
                 if c in kdf.columns:
@@ -292,8 +288,8 @@ def run():
                 hovermode="x unified",
             )
             st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-    except Exception:
-        pass
+        except Exception:
+            pass
 
     st.divider()
 

@@ -52,8 +52,9 @@ class FutuSource(DataSource):
             if self._connected:
                 return True
             try:
-                from futu import OpenQuoteContext
+                from futu import OpenQuoteContext, RET_OK
                 self._ctx = OpenQuoteContext(host="127.0.0.1", port=11111)
+                self._ctx.set_conn_timeout(3)  # 3s timeout — fail fast if OpenD not running
                 self._connected = True
                 logger.debug("Futu OpenD connected")
                 return True

@@ -423,33 +423,33 @@ def run():
         # ── Tab 0: Dashboard ──
         with tabs[0]:
             signal = state.get("structured_decision", {}) if isinstance(state, dict) else {}
-        if isinstance(signal, dict) and signal:
-            dc1, dc2, dc3, dc4 = st.columns(4)
-            with dc1:
-                st.markdown(f'<div class="mc"><div class="mcl">Final Rating</div><div class="mcv">{signal.get("action", rating)}</div></div>', unsafe_allow_html=True)
-            with dc2:
-                conf = signal.get("confidence", 0)
-                st.markdown(f'<div class="mc"><div class="mcl">Confidence</div><div class="mcv">{conf:.0%}</div><div class="mcs">Risk: {signal.get("risk_score", 0):.0%}</div></div>', unsafe_allow_html=True)
-            with dc3:
-                tp = signal.get("target_price")
-                tp_str = f"¥{tp:.2f}" if tp else "—"
-                st.markdown(f'<div class="mc"><div class="mcl">Target Price</div><div class="mcv">{tp_str}</div></div>', unsafe_allow_html=True)
-            with dc4:
-                st.markdown(f'<div class="mc"><div class="mcl">Tokens Used</div><div class="mcv">{p.tokens_total:,}</div><div class="mcs">in {p.tokens_in:,} · out {p.tokens_out:,}</div></div>', unsafe_allow_html=True)
-        else:
-            dc1, dc2, dc3, dc4 = st.columns(4)
-            with dc1:
-                st.markdown(f'<div class="mc"><div class="mcl">Final Rating</div><div class="mcv">{rating}</div></div>', unsafe_allow_html=True)
-            with dc2:
-                qg = state.get("data_quality_summary", "")
-                n_ok = qg.count(": A") + qg.count(": B") if qg else 0
-                st.markdown(f'<div class="mc"><div class="mcl">Data Quality</div><div class="mcv">{n_ok}/7</div><div class="mcs">A/B grade reports</div></div>', unsafe_allow_html=True)
-            with dc3:
-                st.markdown(f'<div class="mc"><div class="mcl">Tokens Used</div><div class="mcv">{p.tokens_total:,}</div><div class="mcs">in {p.tokens_in:,} · out {p.tokens_out:,}</div></div>', unsafe_allow_html=True)
-            with dc4:
-                debate = state.get("investment_debate_state", {}) if isinstance(state, dict) else {}
-                rounds = debate.get("count", 0) if isinstance(debate, dict) else 0
-                st.markdown(f'<div class="mc"><div class="mcl">Debate Rounds</div><div class="mcv">{rounds}</div><div class="mcs">Bull vs Bear</div></div>', unsafe_allow_html=True)
+            if isinstance(signal, dict) and signal:
+                dc1, dc2, dc3, dc4 = st.columns(4)
+                with dc1:
+                    st.markdown(f'<div class="mc"><div class="mcl">Final Rating</div><div class="mcv">{signal.get("action", rating)}</div></div>', unsafe_allow_html=True)
+                with dc2:
+                    conf = signal.get("confidence", 0)
+                    st.markdown(f'<div class="mc"><div class="mcl">Confidence</div><div class="mcv">{conf:.0%}</div><div class="mcs">Risk: {signal.get("risk_score", 0):.0%}</div></div>', unsafe_allow_html=True)
+                with dc3:
+                    tp = signal.get("target_price")
+                    tp_str = f"¥{tp:.2f}" if tp else "—"
+                    st.markdown(f'<div class="mc"><div class="mcl">Target Price</div><div class="mcv">{tp_str}</div></div>', unsafe_allow_html=True)
+                with dc4:
+                    st.markdown(f'<div class="mc"><div class="mcl">Tokens Used</div><div class="mcv">{p.tokens_total:,}</div><div class="mcs">in {p.tokens_in:,} · out {p.tokens_out:,}</div></div>', unsafe_allow_html=True)
+            else:
+                dc1, dc2, dc3, dc4 = st.columns(4)
+                with dc1:
+                    st.markdown(f'<div class="mc"><div class="mcl">Final Rating</div><div class="mcv">{rating}</div></div>', unsafe_allow_html=True)
+                with dc2:
+                    qg = state.get("data_quality_summary", "")
+                    n_ok = qg.count(": A") + qg.count(": B") if qg else 0
+                    st.markdown(f'<div class="mc"><div class="mcl">Data Quality</div><div class="mcv">{n_ok}/7</div><div class="mcs">A/B grade reports</div></div>', unsafe_allow_html=True)
+                with dc3:
+                    st.markdown(f'<div class="mc"><div class="mcl">Tokens Used</div><div class="mcv">{p.tokens_total:,}</div><div class="mcs">in {p.tokens_in:,} · out {p.tokens_out:,}</div></div>', unsafe_allow_html=True)
+                with dc4:
+                    debate = state.get("investment_debate_state", {}) if isinstance(state, dict) else {}
+                    rounds = debate.get("count", 0) if isinstance(debate, dict) else 0
+                    st.markdown(f'<div class="mc"><div class="mcl">Debate Rounds</div><div class="mcv">{rounds}</div><div class="mcs">Bull vs Bear</div></div>', unsafe_allow_html=True)
 
             st.markdown('<div style="margin-top:12px"></div>', unsafe_allow_html=True)
             with st.container():

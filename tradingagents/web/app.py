@@ -112,8 +112,6 @@ def _fetch_stock_data(symbol: str, market: str, days: int = 30, _refresh: int = 
         mod = us_stock
     else:
         mod = a_stock
-    from tradingagents.logging import get_logger
-    get_logger(__name__).info("_fetch_stock_data: symbol=%s market=%s mod=%s", symbol, market, mod.__name__)
     try:
         end = pd.Timestamp.now().strftime("%Y-%m-%d")
         start = (pd.Timestamp.now() - pd.Timedelta(days=int(days * 1.6))).strftime("%Y-%m-%d")
@@ -158,6 +156,29 @@ def _load_cached_result(symbol: str, depth: str) -> dict | None:
         return None
 
 
+# ── Auto-detect market from symbol ──────────────────────────────────────
+def _detect_market(symbol: str) -> str:
+    """Guess the market from the ticker format."""
+    s = symbol.strip().upper().replace(" ", "")
+    if not s:
+        return "a_stock"
+    if s.isalpha() and len(s) <= 5:
+        return "us_stock"
+    if s.isdigit() and len(s) == 6:
+        return "a_stock"
+    if s.isdigit() and len(s) <= 5:
+        return "hk_stock"
+    if s.startswith("SH.") or s.startswith("SZ."):
+        return "a_stock"
+    if s.endswith(".HK"):
+        return "hk_stock"
+    return "a_stock"
+
+
+def _market_label(m: str) -> str:
+    return {"a_stock": "A-Shares", "hk_stock": "Hong Kong", "us_stock": "US Stocks"}.get(m, m)
+
+
 # ── Main ────────────────────────────────────────────────────────────────
 def run():
     from tradingagents.graph.progress import get_progress, STEP_LABELS
@@ -193,9 +214,13 @@ def run():
         trade_date = st.date_input("date_input", pd.Timestamp.now(), label_visibility="collapsed").strftime("%Y-%m-%d")
 
         st.markdown('<div class="ig-label">Market</div>', unsafe_allow_html=True)
-        market = st.selectbox("market_select", ["a_stock", "hk_stock", "us_stock"], index=0,
-                              format_func=lambda x: {"a_stock": "A-Shares (A股)", "hk_stock": "Hong Kong (港股)", "us_stock": "US (美股)"}[x],
-                              label_visibility="collapsed")
+        detected = _detect_market(symbol)
+        market_opts = ["auto", "a_stock", "hk_stock", "us_stock"]
+        market_labels = {"auto": f"Auto ({_market_label(detected)})", "a_stock": "A-Shares (A股)", "hk_stock": "Hong Kong (港股)", "us_stock": "US (美股)"}
+        market_sel = st.selectbox("market_select", market_opts, index=0,
+                                  format_func=lambda x: market_labels[x],
+                                  label_visibility="collapsed")
+        market = detected if market_sel == "auto" else market_sel
 
         st.markdown('<div class="ig-label">Data Window</div>', unsafe_allow_html=True)
         data_window = st.selectbox("window_select", [30, 60, 120, 250], index=0,
@@ -243,7 +268,6 @@ def run():
 
     # ═══ MAIN ═══
     import datetime as _dt
-    st.caption(f"[DEBUG] market={market} symbol={symbol}")
     info, kline_df = _fetch_stock_data(symbol, market, _refresh=st.session_state._refresh_key)
 
     # Stock header + refresh

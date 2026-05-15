@@ -89,7 +89,7 @@ class FutuSource(DataSource):
             au_map = {"qfq": AuType.QFQ, "hfq": AuType.HFQ, "none": AuType.NONE}
 
             futu_sym = _futu_symbol(symbol, self.market)
-            ret, df, _ = ctx.request_history_kline(
+            ret, df, page_req_key = ctx.request_history_kline(
                 futu_sym,
                 start=start_date,
                 end=end_date,
@@ -97,7 +97,11 @@ class FutuSource(DataSource):
                 autype=au_map.get(adjust, AuType.QFQ),
                 max_count=500,
             )
-            if ret != 0 or df is None or df.empty:
+            if ret != 0:
+                logger.warning("Futu K-line failed: ret=%s symbol=%s", ret, futu_sym)
+                return pd.DataFrame()
+            if df is None or df.empty:
+                logger.warning("Futu K-line empty: symbol=%s", futu_sym)
                 return pd.DataFrame()
 
             df = df.rename(columns={

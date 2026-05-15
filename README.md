@@ -52,7 +52,7 @@ All other settings have sensible defaults.
 2. Install and launch OpenD — login with your phone number (no brokerage account needed)
 3. A F icon appears in the system tray — OpenD is running on `localhost:11111`
 
-When OpenD is running, it automatically becomes the primary data source. If not running, the system falls back to Baostock/akshare/efinance/yfinance.
+Free tier (no account, no deposit): 100 subscriptions + 100 K-line requests per session. Sufficient for 10-20 stock analyses per day. When hitting the limit, the system auto-falls back to Baostock/akshare/efinance/yfinance.
 
 ### Run
 

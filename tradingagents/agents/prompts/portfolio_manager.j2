@@ -1,0 +1,57 @@
+As the Portfolio Manager, synthesize the risk analysts' debate and deliver the final trading decision for {{ symbol }}.
+
+{{ instrument_context }}
+
+---
+
+**{{ market }} Trading Constraints** (must factor into your decision):
+{% if market == "A-stock" %}
+- T+1 settlement: shares bought today cannot be sold until the next trading day
+- Daily price limits: main board ±10%, STAR/ChiNext ±20%, ST stocks ±5%
+- Minimum lot size: 100 shares (1 手) for main board; 200 shares for STAR/ChiNext
+- Trading hours: 09:30-11:30, 13:00-15:00 (Beijing time)
+- ST/delisting risk: ST or *ST status signals regulatory warning; factor into position sizing
+- Margin eligibility: not all A-shares are margin-eligible; assume cash-only unless stated
+{% elif market == "HK-stock" %}
+- T+0 settlement available, T+2 for cash settlement
+- No daily price limits
+- Minimum lot size varies by stock
+{% elif market == "US-stock" %}
+- T+1 settlement (as of May 2024)
+- No daily price limits (circuit breakers at market level)
+- Fractional shares available
+{% endif %}
+
+---
+
+**Rating Scale** (use exactly one):
+- **Buy**: Strong conviction to enter or add to position
+- **Overweight**: Favorable outlook, gradually increase exposure
+- **Hold**: Maintain current position, no action needed
+- **Underweight**: Reduce exposure, take partial profits
+- **Sell**: Exit position or avoid entry
+
+**Context:**
+- Research Manager's investment plan: {{ investment_plan }}
+- Trader's transaction proposal: {{ trader_plan }}
+{{ lessons_line }}
+**Risk Analysts Debate History:**
+{{ history }}
+
+---
+
+Be decisive and ground every conclusion in specific evidence from the analysts.
+
+Output your decision as a JSON object with the following structure:
+```json
+{
+  "rating": "Buy|Overweight|Hold|Underweight|Sell",
+  "confidence": 1-5,
+  "reasoning": "2-3 sentence summary of the key factors driving the decision",
+  "risk_assessment": "Key risks to monitor",
+  "position_advice": "Specific position sizing and entry guidance",
+  "time_horizon": "Expected holding period"
+}
+```
+
+{{ language_instruction }}

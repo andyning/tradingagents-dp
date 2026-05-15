@@ -1,0 +1,86 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tradingagents-dp"
+version = "0.3.0"
+description = "Multi-agent LLM investment analysis framework — A-share, HK, US markets"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "TradingAgents"},
+]
+
+dependencies = [
+    # ---- LLM ----
+    "openai>=1.0.0",
+
+    # ---- Agent orchestration ----
+    "langgraph>=0.4.8",
+    "langgraph-checkpoint-sqlite>=2.0.0",
+
+    # ---- Data ----
+    "pandas>=2.0.0",
+    "baostock>=0.8.8",
+    "efinance>=0.5.0",
+    "akshare>=1.18.0",
+    "yfinance>=0.2.0",
+
+    # ---- Backtesting ----
+    "backtrader>=1.9.78.123",
+
+    # ---- Configuration & Logging ----
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "structlog>=24.0.0",
+    "jinja2>=3.0.0",
+
+    # ---- Web ----
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "streamlit>=1.45.0",
+    "fpdf2>=2.8.0",
+
+    # ---- CLI ----
+    "rich>=14.0.0",
+    "typer>=0.21.0",
+    "questionary>=2.1.0",
+
+    # ---- Utilities ----
+    "httpx>=0.27.0",
+    "requests>=2.32.0",
+    "tqdm>=4.67.0",
+    "typing-extensions>=4.14.0",
+    "pytz>=2024.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/TradingAgents-dp"
+Repository = "https://github.com/TradingAgents-dp"
+Issues = "https://github.com/TradingAgents-dp/issues"
+
+[project.scripts]
+tradingagents = "tradingagents.cli.main:app"
+tradingagents-web = "tradingagents.web.launch:main"
+tradingagents-api = "tradingagents.web.api:main"
+
+[tool.setuptools.packages.find]
+include = ["tradingagents*", "cli*", "web*"]
+
+[tool.setuptools.package-data]
+cli = ["static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "unit: fast isolated unit tests",
+    "integration: tests requiring external services",
+    "smoke: quick sanity-check tests",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]

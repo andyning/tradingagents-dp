@@ -51,6 +51,62 @@ def _save(ticker: str, entries: list[dict[str, Any]]) -> None:
         logger.warning("Failed to save memory: %s", exc)
 
 
+_REFLECTION_PROMPT = """You are an expert trading coach. Review the following investment analysis and provide a structured lesson.
+
+The analysis was for {ticker} on {trade_date}. The final rating was {action} (confidence: {confidence:.0%}).
+
+Analysis Report:
+{decision_summary}
+
+Market Context:
+{market_context}
+
+Provide your response in exactly this format:
+
+**Reasoning**: Was the decision well-supported by the data? 2-3 sentences.
+**Lesson**: What is the single most important takeaway for future analyses of this stock? 1 sentence.
+**Watch**: What signal or condition would have changed this decision? 1 sentence.
+
+Keep the total under 200 words. Be specific to {ticker}."""
+
+
+def generate_reflection(
+    ticker: str,
+    trade_date: str,
+    action: str,
+    confidence: float,
+    decision: str,
+    market_report: str = "",
+    fundamentals_report: str = "",
+) -> str:
+    """Generate a structured reflection on an analysis using the LLM.
+
+    Returns a concise lesson (under 200 words) that can be stored and
+    retrieved to improve future analyses.
+    """
+    try:
+        from tradingagents.llm.client import get_llm_client
+
+        market_context = (market_report or "")[:500] + "\n" + (fundamentals_report or "")[:300]
+        prompt = _REFLECTION_PROMPT.format(
+            ticker=ticker,
+            trade_date=trade_date,
+            action=action,
+            confidence=confidence,
+            decision_summary=(decision or "")[:800],
+            market_context=market_context[:600],
+        )
+
+        llm = get_llm_client("quick")
+        resp = llm.chat([{"role": "user", "content": prompt}])
+        reflection = (resp.content or "").strip()
+        logger.info("Reflection generated for %s (%d chars)", ticker, len(reflection))
+        return reflection
+    except Exception as exc:
+        logger.warning("Reflection generation failed: %s", exc)
+        return ""
+
+
 def store_analysis(
     ticker: str,
     trade_date: str,
@@ -65,11 +121,18 @@ def store_analysis(
     risk_score: float = 0.0,
     target_price: float | None = None,
 ) -> None:
-    """Store an analysis result. Appends to ticker's memory file."""
+    """Store an analysis result with auto-generated reflection."""
     entries = _load(ticker)
 
     # Remove existing entry for same date+depth (update-in-place)
     entries = [e for e in entries if not (e.get("trade_date") == trade_date and e.get("depth") == depth)]
+
+    # Generate reflection lesson from the LLM
+    reflection = generate_reflection(
+        ticker=ticker, trade_date=trade_date, action=action,
+        confidence=confidence, decision=decision,
+        market_report=market_report, fundamentals_report=fundamentals_report,
+    )
 
     entries.append({
         "ticker": ticker,
@@ -81,6 +144,7 @@ def store_analysis(
         "risk_score": risk_score,
         "target_price": str(target_price) if target_price else "",
         "decision_summary": (decision or "")[:500],
+        "reflection": reflection,
         "stored_at": datetime.now().isoformat(),
     })
     _save(ticker, entries)
@@ -99,12 +163,12 @@ def retrieve_memories(
 
 
 def get_memory_context(ticker: str, market: str = "", limit: int = 5) -> str:
-    """Return a formatted string of past memories for prompt injection."""
+    """Return a formatted string of past memories with reflection lessons."""
     memories = retrieve_memories(ticker, market, limit)
     if not memories:
         return ""
 
-    lines = ["## 历史分析记录 (Past Analysis Memory)", ""]
+    lines = ["## 历史分析记录与反思教训 (Past Analysis & Lessons Learned)", ""]
     for i, m in enumerate(memories):
         tp = f", 目标价 {m['target_price']}" if m.get("target_price") else ""
         lines.append(
@@ -113,7 +177,16 @@ def get_memory_context(ticker: str, market: str = "", limit: int = 5) -> str:
             f"置信度 {float(m.get('confidence', 0)):.0%}"
             f"{tp}"
         )
-    lines.append("")
-    lines.append("*以上为历史分析记录，请结合当前数据独立判断。*")
+        # Include the reflection lesson if available
+        reflection = m.get("reflection", "")
+        if reflection:
+            # Extract just the Lesson line for brevity
+            for rline in reflection.split("\n"):
+                rline = rline.strip()
+                if rline.startswith("**Lesson**") or rline.startswith("**Watch**"):
+                    clean = rline.replace("**Lesson**:", "  - 教训:").replace("**Watch**:", "  - 关注:").replace("**", "")
+                    lines.append(clean)
+            lines.append("")
+    lines.append("*以上为历史分析记录与AI反思，请结合当前数据独立判断。*")
     lines.append("")
     return "\n".join(lines)

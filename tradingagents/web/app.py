@@ -17,7 +17,18 @@ st.set_page_config(page_title="TradingAgents", page_icon="", layout="wide", init
 st.markdown("""<style>
     .stApp { background: #f8fafc; }
     .main .block-container { padding: 1.5rem 2rem; max-width: 1400px; }
-    section[data-testid="stSidebar"] { background: #fff; border-right: 1px solid #e5e7eb; }
+    /* Sidebar — Mars Green */
+    section[data-testid="stSidebar"] { background: #018474; border-right: none; }
+    section[data-testid="stSidebar"] h3 { color: #fff !important; font-size: 1.6rem !important; font-weight: 800 !important; letter-spacing: .02em !important; }
+    section[data-testid="stSidebar"] .stCaption { color: rgba(255,255,255,.7) !important; font-size: 0.8rem !important; }
+    section[data-testid="stSidebar"] .stMarkdown,
+    section[data-testid="stSidebar"] p, section[data-testid="stSidebar"] span,
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] div { color: #fff !important; }
+    section[data-testid="stSidebar"] .stMarkdown p strong { color: #fff !important; font-weight: 700 !important; font-size: 0.82rem !important; letter-spacing: .04em !important; }
+    section[data-testid="stSidebar"] hr { border-color: rgba(255,255,255,.2) !important; }
+    /* Sidebar input labels: bold */
+    .ig-label { font-size: 0.7rem !important; color: rgba(255,255,255,.8) !important; font-weight: 700 !important; text-transform: uppercase; letter-spacing: .06em; margin: 10px 0 4px 0; }
     h2, h3 { color: #111827; font-weight: 600; }
     .mc { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px 16px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
     .mc .mcl { font-size: 0.68rem; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; font-weight: 500; }
@@ -36,9 +47,9 @@ st.markdown("""<style>
     .s-act .sdot { color: #2563eb; } .s-act .slbl { color: #2563eb; font-weight: 600; }
     .s-done .sdot { color: #059669; } .s-done .slbl { color: #059669; }
     .s-wait .sdot { color: #d1d5db; } .s-wait .slbl { color: #9ca3af; }
-    .tbox { text-align: center; padding: 8px 4px; background: #f1f5f9; border-radius: 6px; }
-    .tbox .tv { font-size: .88rem; font-weight: 700; color: #2563eb; }
-    .tbox .tl { font-size: .62rem; color: #6b7280; text-transform: uppercase; }
+    .tbox { text-align: center; padding: 8px 4px; background: rgba(255,255,255,.15); border-radius: 6px; }
+    .tbox .tv { font-size: .88rem; font-weight: 700; color: #fff; }
+    .tbox .tl { font-size: .62rem; color: rgba(255,255,255,.7); text-transform: uppercase; }
     .dash-panel { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px 20px; box-shadow: 0 1px 2px rgba(0,0,0,.04); margin-bottom: 10px; }
     .dash-panel h4 { color: #111827; font-size: .85rem; font-weight: 600; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #f1f5f9; }
     .dash-panel p { font-size: .8rem; color: #4b5563; line-height: 1.5; }
@@ -47,11 +58,9 @@ st.markdown("""<style>
     section[data-testid="stSidebar"] input[type="text"],
     section[data-testid="stSidebar"] [data-baseweb="select"],
     section[data-testid="stSidebar"] [data-testid="stDateInput"] input {
-        border: 1.5px solid #3b82f6 !important; border-radius: 6px !important; background: #fff !important;
+        border: 1.5px solid rgba(255,255,255,.4) !important; border-radius: 6px !important; background: rgba(255,255,255,.12) !important; color: #fff !important;
     }
-    section[data-testid="stSidebar"] input[type="text"]:focus {
-        border-color: #2563eb !important; box-shadow: 0 0 0 2px rgba(37,99,235,.15) !important;
-    }
+    section[data-testid="stSidebar"] input[type="text"]::placeholder { color: rgba(255,255,255,.5) !important; }
     /* Run button: Prussian blue */
     section[data-testid="stSidebar"] button[kind="primary"] {
         background: #0D3869 !important; border-color: #0D3869 !important; color: #fff !important;
@@ -266,12 +275,12 @@ def run():
                 marker_color="rgba(37,99,235,0.3)", yaxis="y2",
             ))
             fig.update_layout(
-                title=f"{symbol} {info.get('name', '')}",
+                title=f"{symbol}  {info.get('name', '')}",
                 xaxis_title="", yaxis_title="Price (¥)",
                 template="plotly_white",
-                height=400,
-                margin=dict(l=0, r=0, t=40, b=0),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                height=420,
+                margin=dict(l=0, r=0, t=50, b=0),
+                showlegend=False,
                 xaxis_rangeslider_visible=False,
                 yaxis2=dict(title="", overlaying="y", side="right", showgrid=False, visible=False),
                 hovermode="x unified",
@@ -378,7 +387,25 @@ def run():
             st.markdown('<div style="margin-top:12px"></div>', unsafe_allow_html=True)
             with st.container():
                 st.markdown('<div class="dash-panel"><h4>Final Decision</h4></div>', unsafe_allow_html=True)
-                st.markdown(decision)
+                # Parse decision into clean table
+                fields = {}
+                for line in decision.split("\n"):
+                    line = line.strip()
+                    if line.startswith("**") and "**" in line[2:]:
+                        key_end = line.index("**", 2) + 2
+                        key = line[2:key_end-2].strip().rstrip(":")
+                        value = line[key_end:].strip().lstrip(":").strip()
+                        if value:
+                            fields[key] = value
+                if fields:
+                    rows = "".join(
+                        f'<tr><td style="padding:8px 16px;color:#6b7280;font-weight:600;white-space:nowrap;border-bottom:1px solid #f1f5f9">{k}</td>'
+                        f'<td style="padding:8px 16px;color:#111827;border-bottom:1px solid #f1f5f9">{v}</td></tr>'
+                        for k, v in fields.items()
+                    )
+                    st.markdown(f'<table style="width:100%;border-collapse:collapse;font-size:0.88rem">{rows}</table>', unsafe_allow_html=True)
+                else:
+                    st.markdown(decision)
 
             st.markdown("#### Analyst Summaries")
             sc = st.columns(3)

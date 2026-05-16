@@ -184,10 +184,14 @@ def quality_gate_node(state: dict[str, Any]) -> dict[str, Any]:
     hard_fail = []
     for name, content in reports.items():
         cl = content.strip() if content else ""
+        # Legitimate skip: analyst explicitly says "放弃" or "不适用" or "not applicable"
+        is_skip = any(w in cl for w in ["放弃", "不适用", "not applicable"]) and len(cl) > 30
         if not cl or len(cl) < 100:
             hard_grades[name] = "F"; hard_fail.append(name)
         elif any(m.lower() in cl.lower() for m in FAILURE_MARKERS):
             hard_grades[name] = "D"; hard_fail.append(name)
+        elif is_skip and len(cl) < 800:
+            hard_grades[name] = "B"  # Legitimate skip — not a failure
         elif len(cl) > 1500:
             hard_grades[name] = "A"
         elif len(cl) > 500:

@@ -251,7 +251,11 @@ def for_hot_money_analyst(state: dict[str, Any]) -> str:
     parts = ["## Hot Money / Capital Flow\n"]
 
     if market != "a_stock":
-        return "## Hot Money / Capital Flow\n(A-share specific — not applicable. Skip this analysis.)\n"
+        return ("## Hot Money / Capital Flow\n"
+                "A-share specific — not applicable for this market.\n\n"
+                "Instructions: Output ONLY `[DIRECTION]: 放弃 | [KPI]: 不适用` on the first line, "
+                "then write exactly one sentence: 'Hot money and capital flow analysis is specific to A-share markets "
+                "and not applicable to this stock.' Do NOT fabricate data.\n")
 
     # Fund flow
     try:
@@ -303,7 +307,11 @@ def for_lockup_analyst(state: dict[str, Any]) -> str:
     parts = ["## Lockup / Insider Data\n"]
 
     if market != "a_stock":
-        return "## Lockup / Insider\n(A-share specific — not applicable. Skip this analysis.)\n"
+        return ("## Lockup / Insider\n"
+                "A-share specific — not applicable for this market.\n\n"
+                "Instructions: Output ONLY `[DIRECTION]: 放弃 | [KPI]: 不适用` on the first line, "
+                "then write exactly one sentence: 'Lockup expiry and insider transaction analysis is specific "
+                "to A-share markets and not applicable to this stock.' Do NOT fabricate data.\n")
 
     try:
         lockup = a_stock.get_lockup_expiry(symbol, months=6)
@@ -339,24 +347,20 @@ def for_policy_analyst(state: dict[str, Any]) -> str:
 
     parts = ["## Policy & Macro News (你必须基于以下真实新闻分析政策影响)\n"]
     try:
-        # Try to get news through the market module
         if hasattr(mod, "get_news"):
             news = mod.get_news(symbol, limit=20)
             if not news.empty:
-                from tradingagents.graph.news_filter import filter_news
-                raw_items = news.to_dict("records")
-                # Filter for policy/macro-relevant keywords
-                policy_kw = ["policy", "regulation", "fed", "interest", "tariff", "trade",
-                             "ban", "restrict", "subsidy", "congress", "白宫", "国会",
-                             "政策", "监管", "关税", "制裁", "补贴", "央行", "利率",
-                             "cpi", "gdp", "inflation", "employment", "就业", "通胀"]
-                filtered = filter_news(raw_items, symbol, company_name="", max_items=15)
-                if filtered:
-                    for item in filtered:
-                        parts.append(f"- **{item.get('title', '')}** ({item.get('source', '')})")
+                # For non-A-stock, include all news (IB provides real financial headlines)
+                # For A-stock, filter for policy keywords
+                if market == "a_stock":
+                    from tradingagents.graph.news_filter import filter_news
+                    raw_items = news.to_dict("records")
+                    filtered = filter_news(raw_items, symbol, company_name="", max_items=15)
+                    items = filtered if filtered else news.head(10).to_dict("records")
                 else:
-                    for _, row in news.head(10).iterrows():
-                        parts.append(f"- **{row.get('title', '')}** ({row.get('source', '')})")
+                    items = news.head(15).to_dict("records")
+                for item in items:
+                    parts.append(f"- **{item.get('title', '')}** ({item.get('source', '')})")
             else:
                 parts.append("(暂无相关新闻数据)")
         else:
@@ -364,8 +368,10 @@ def for_policy_analyst(state: dict[str, Any]) -> str:
     except Exception as exc:
         parts.append(f"(新闻获取失败: {exc})")
 
-    parts.append("")
-    parts.append("Instructions: Analyze how the above news affects the stock's sector and regulatory environment. If no relevant policy news found, state that clearly and base your analysis on known regulatory frameworks for this market.")
+    has_news = any("**" in p for p in parts[1:])
+    if not has_news:
+        parts.append("")
+        parts.append("No policy-relevant news available. Output `[DIRECTION]: 放弃 | [KPI]: 无数据支持` and write a brief note.")
     parts.append("")
     return "\n".join(parts)
 

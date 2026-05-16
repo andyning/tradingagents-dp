@@ -1,8 +1,6 @@
 [server]
-# Increase WebSocket timeout for long-running analyses (Deep mode ~12 min)
+# Longer WebSocket ping interval for deep analyses
 websocketPingInterval = 60
-websocketPingTimeout = 300
 
 [browser]
-# Don't auto-reconnect on WebSocket errors — avoid noisy logs
 gatherUsageStats = false

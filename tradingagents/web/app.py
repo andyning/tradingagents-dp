@@ -232,45 +232,38 @@ def _build_export_report(state: dict, symbol: str, trade_date: str, market: str,
 
 
 def _check_data_sources():
-    """Quick health check of data sources. Runs once per session."""
+    """Quick health check — runs once per session, skips heavy network tests on startup."""
     if st.session_state.get("_health_checked"):
         return
     st.session_state._health_checked = True
-
-    def _test(desc: str, func) -> None:
+    # Run checks in background thread to avoid blocking UI
+    def _bg_health():
+        # Baostock
         try:
-            func()
-            st.session_state[f"_health_{desc}"] = "OK"
-        except Exception:
-            st.session_state[f"_health_{desc}"] = "DOWN"
-
-    # Test Futu
-    try:
-        from futu import OpenQuoteContext
-        ctx = OpenQuoteContext(host="127.0.0.1", port=11111)
-        ctx.close()
-        st.session_state._health_futu = "OK"
-    except Exception:
-        st.session_state._health_futu = "DOWN"
-
-    # Test Baostock
-    try:
-        import baostock as bs
-        lg = bs.login()
-        if lg.error_code == "0":
-            st.session_state._health_baostock = "OK"
+            import baostock as bs
+            lg = bs.login()
+            st.session_state._health_baostock = "OK" if lg.error_code == "0" else "DOWN"
             bs.logout()
-    except Exception:
-        st.session_state._health_baostock = "DOWN"
+        except Exception:
+            st.session_state._health_baostock = "DOWN"
+        # Futu
+        try:
+            from futu import OpenQuoteContext
+            ctx = OpenQuoteContext(host="127.0.0.1", port=11111)
+            ctx.close()
+            st.session_state._health_futu = "OK"
+        except Exception:
+            st.session_state._health_futu = "DOWN"
+        # Eastmoney
+        try:
+            import requests
+            r = requests.get("https://push2.eastmoney.com/api/qt/stock/get", timeout=3,
+                            headers={"User-Agent": "Mozilla/5.0"})
+            st.session_state._health_eastmoney = "OK" if r.status_code == 200 else "DOWN"
+        except Exception:
+            st.session_state._health_eastmoney = "DOWN"
 
-    # Test Eastmoney
-    try:
-        import requests
-        r = requests.get("https://push2.eastmoney.com/api/qt/stock/get", timeout=3,
-                        headers={"User-Agent": "Mozilla/5.0"})
-        st.session_state._health_eastmoney = "OK" if r.status_code == 200 else "DOWN"
-    except Exception:
-        st.session_state._health_eastmoney = "DOWN"
+    threading.Thread(target=_bg_health, daemon=True).start()
 
 
 # ── Main ────────────────────────────────────────────────────────────────
@@ -524,8 +517,8 @@ def run():
         # Completion notification + batch queue drain
         if not st.session_state.get("_notified", False):
             st.session_state._notified = True
-            st.toast("Analysis complete!", icon="")
-            st.balloons()
+            st.toast("Analysis complete!")
+            st.toast("Open report tabs to review results.")
             # Auto-drain batch queue
             if st.session_state._batch_queue:
                 st.session_state._batch_queue.pop(0)

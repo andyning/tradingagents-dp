@@ -52,8 +52,11 @@ def _get_shared_ib(host: str = _DEFAULT_HOST, port: int = _DEFAULT_PORT):
                 pass
             _shared_ib = None
 
-        # Create fresh connection
+        # Create fresh connection — ib_insync needs an event loop per thread
         try:
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
             from ib_insync import IB
             _shared_ib = IB()
             _shared_ib.connect(host, port, clientId=_CLIENT_ID, timeout=8)

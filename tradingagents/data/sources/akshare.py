@@ -246,8 +246,8 @@ class AkshareSource(DataSource):
     def technical_indicators(self, symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
         return pd.DataFrame()
 
-    def news(self, symbol: str, limit: int = 20) -> pd.DataFrame:
-        """Fetch A-stock announcements via eastmoney public API."""
+    def eastmoney_news(self, symbol: str, limit: int = 20) -> pd.DataFrame:
+        """A-stock announcements via eastmoney public API (JSON, no auth)."""
         try:
             import requests
             url = (
@@ -286,6 +286,44 @@ class AkshareSource(DataSource):
             return pd.DataFrame(rows)
         except Exception:
             return pd.DataFrame()
+
+    def sina_news(self, symbol: str, limit: int = 20) -> pd.DataFrame:
+        """A-stock news via Sina Finance HTML page (public, no auth).
+        Parses the stock news listing page for headlines.
+        """
+        try:
+            import re
+            import requests
+            prefix = "sh" if symbol.startswith("6") else "sz"
+            url = f"https://vip.stock.finance.sina.com.cn/corp/go.php/vCB_AllNewsStock/symbol/{prefix}{symbol}.phtml"
+            r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=8)
+            r.encoding = "gbk"  # Sina uses GBK encoding
+            if r.status_code != 200:
+                return pd.DataFrame()
+            # Parse datelist div: date + link pattern with <br> separators
+            rows = []
+            datelist_m = re.search(r'<div class="datelist">(.*?)</div>', r.text, re.DOTALL)
+            html = datelist_m.group(1) if datelist_m else r.text
+            # Pattern: 2026-05-16 20:09  <a target='_blank' href='URL'>TITLE</a>
+            pattern = re.compile(r"(\d{4}-\d{2}-\d{2}).*?<a[^>]*>([^<]{5,100})</a>")
+            matches = pattern.findall(html)
+            for date_str, title in matches[:limit]:
+                title = title.strip()
+                if title and len(title) > 5 and "首页" not in title and "财经" not in title:
+                    rows.append({"title": title, "source": "sina", "url": "",
+                                 "publish_time": date_str, "summary": ""})
+            logger.info("[akshare] sina news returned %d articles for %s", len(rows), symbol)
+            return pd.DataFrame(rows) if rows else pd.DataFrame()
+        except Exception:
+            return pd.DataFrame()
+
+    # Backward-compat alias
+    def news(self, symbol: str, limit: int = 20) -> pd.DataFrame:
+        """Try eastmoney first, then sina."""
+        df = self.eastmoney_news(symbol, limit)
+        if not df.empty:
+            return df
+        return self.sina_news(symbol, limit)
 
     def concept_blocks(self) -> pd.DataFrame:
         return pd.DataFrame()

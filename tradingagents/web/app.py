@@ -880,16 +880,16 @@ def run():
                             break
                 report_rows += (
                     f'<tr>'
-                    f'<td style="padding:8px 12px;color:#374151;font-size:1.31rem;font-weight:600;border-bottom:1px solid #f1f5f9;white-space:nowrap;vertical-align:top;width:140px">{label}</td>'
-                    f'<td style="padding:8px 12px;color:#9ca3af;font-size:1.2rem;border-bottom:1px solid #f1f5f9;white-space:nowrap;vertical-align:top;width:150px">{data_input}</td>'
-                    f'<td style="padding:8px 12px;color:#4b5563;font-size:1.28rem;border-bottom:1px solid #f1f5f9;line-height:1.4">{finding}</td>'
+                    f'<td style="padding:8px 12px;color:#0d3330;font-size:1.31rem;font-weight:600;border-bottom:1px solid #5fc9ba;white-space:nowrap;vertical-align:top;width:140px">{label}</td>'
+                    f'<td style="padding:8px 12px;color:#2d5e59;font-size:1.2rem;border-bottom:1px solid #5fc9ba;white-space:nowrap;vertical-align:top;width:150px">{data_input}</td>'
+                    f'<td style="padding:8px 12px;color:#1a3d3a;font-size:1.28rem;border-bottom:1px solid #5fc9ba;line-height:1.4">{finding}</td>'
                     f'</tr>'
                 )
             st.markdown(
-                f'<div class="dash-panel"><table style="width:100%;border-collapse:collapse">'
-                f'<tr><th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:1.12rem;text-transform:uppercase">Analyst</th>'
-                f'<th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:1.12rem;text-transform:uppercase">Data Input</th>'
-                f'<th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:1.12rem;text-transform:uppercase">Key Finding</th></tr>'
+                f'<div class="dash-panel" style="background:#71E2D1;border-color:#5fc9ba"><table style="width:100%;border-collapse:collapse;background:#71E2D1">'
+                f'<tr><th style="text-align:left;padding:6px 12px;color:#0d3330;font-size:1.12rem;text-transform:uppercase">Analyst</th>'
+                f'<th style="text-align:left;padding:6px 12px;color:#0d3330;font-size:1.12rem;text-transform:uppercase">Data Input</th>'
+                f'<th style="text-align:left;padding:6px 12px;color:#0d3330;font-size:1.12rem;text-transform:uppercase">Key Finding</th></tr>'
                 f'{report_rows}</table></div>',
                 unsafe_allow_html=True,
             )
@@ -1075,16 +1075,16 @@ def run():
             chain_items.append(("Portfolio Manager", "Risk debate, Trader's plan, Research Manager's plan", pm_output))
 
             chain_rows = "".join(
-                f'<tr><td style="padding:8px 12px;color:#374151;font-size:1.31rem;font-weight:600;border-bottom:1px solid #f1f5f9;white-space:nowrap;vertical-align:top;width:160px">{k}</td>'
-                f'<td style="padding:8px 12px;color:#9ca3af;font-size:1.2rem;border-bottom:1px solid #f1f5f9;white-space:nowrap;vertical-align:top;width:140px">{d}</td>'
-                f'<td style="padding:8px 12px;color:#4b5563;font-size:1.28rem;border-bottom:1px solid #f1f5f9;line-height:1.4">{v}</td></tr>'
+                f'<tr><td style="padding:8px 12px;color:#ffffff;font-size:1.31rem;font-weight:600;border-bottom:1px solid #1a4fba;white-space:nowrap;vertical-align:top;width:160px">{k}</td>'
+                f'<td style="padding:8px 12px;color:#8bb3f0;font-size:1.2rem;border-bottom:1px solid #1a4fba;white-space:nowrap;vertical-align:top;width:140px">{d}</td>'
+                f'<td style="padding:8px 12px;color:#e0edff;font-size:1.28rem;border-bottom:1px solid #1a4fba;line-height:1.4">{v}</td></tr>'
                 for k, d, v in chain_items
             )
             st.markdown(
-                f'<div class="dash-panel"><table style="width:100%;border-collapse:collapse">'
-                f'<tr><th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:1.12rem;text-transform:uppercase">Agent</th>'
-                f'<th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:1.12rem;text-transform:uppercase">Input</th>'
-                f'<th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:1.12rem;text-transform:uppercase">Decision / Conclusion</th></tr>'
+                f'<div class="dash-panel" style="background:#002FA7;border-color:#00258a"><table style="width:100%;border-collapse:collapse;background:#002FA7">'
+                f'<tr><th style="text-align:left;padding:6px 12px;color:#8bb3f0;font-size:1.12rem;text-transform:uppercase">Agent</th>'
+                f'<th style="text-align:left;padding:6px 12px;color:#8bb3f0;font-size:1.12rem;text-transform:uppercase">Input</th>'
+                f'<th style="text-align:left;padding:6px 12px;color:#8bb3f0;font-size:1.12rem;text-transform:uppercase">Decision / Conclusion</th></tr>'
                 f'{chain_rows}</table></div>',
                 unsafe_allow_html=True,
             )

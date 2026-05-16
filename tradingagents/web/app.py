@@ -507,11 +507,15 @@ def run():
         c2.markdown(f'<div class="tbox"><div class="tv">{p_now.tokens_out:,}</div><div class="tl">Output</div></div>', unsafe_allow_html=True)
         c3.markdown(f'<div class="tbox"><div class="tv">{p_now.tokens_total:,}</div><div class="tl">Total</div></div>', unsafe_allow_html=True)
 
-        # Report export (always visible when analysis done)
-        p_done = get_progress()
-        state_done = p_done.step_results.get("__state__", {})
-        if isinstance(state_done, dict) and state_done:
-            report_md = _build_export_report(state_done, symbol, trade_date, market, depth)
+        # Report export (always visible when analysis result exists)
+        export_state = None
+        if st.session_state._done:
+            p_export = get_progress()
+            export_state = p_export.step_results.get("__state__", {})
+        if not export_state and st.session_state._cached_result:
+            export_state = st.session_state._cached_result
+        if isinstance(export_state, dict) and export_state:
+            report_md = _build_export_report(export_state, symbol, trade_date, market, depth)
             st.download_button(
                 label="Export Report (Markdown)",
                 data=report_md,

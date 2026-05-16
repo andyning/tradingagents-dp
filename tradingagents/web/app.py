@@ -319,6 +319,41 @@ def run():
                              label_visibility="collapsed")
         st.divider()
 
+        # Data source health — vertical layout with large dots
+        st.divider()
+        st.markdown("**Data Sources**")
+        for label, key in [("Futu", "futu"), ("Baostock", "baostock"), ("Eastmoney", "eastmoney")]:
+            status = st.session_state.get(f"_health_{key}", "?")
+            color = {"OK": "green", "?": "gray"}.get(status, "orange")
+            st.markdown(
+                f'<span style="font-size:1.2rem;color:{color};margin-right:8px">●</span>'
+                f'<span style="color:rgba(255,255,255,.9);font-size:0.78rem">{label}</span>'
+                f'<span style="color:rgba(255,255,255,.4);font-size:0.7rem;margin-left:6px">({status})</span>',
+                unsafe_allow_html=True,
+            )
+
+        # Batch analysis
+        st.divider()
+        st.markdown("**Batch Analysis**")
+        batch_symbols = st.text_area("batch_input", placeholder="600519, 000001, 688775", label_visibility="collapsed", height=60)
+        batch_list = [s.strip() for s in batch_symbols.replace("\n", ",").split(",") if s.strip()] if batch_symbols else []
+        bcol1, bcol2 = st.columns([3, 1])
+        with bcol1:
+            if batch_list and st.button("Add to Queue", use_container_width=True):
+                for s in batch_list:
+                    if s not in st.session_state._batch_queue:
+                        st.session_state._batch_queue.append(s)
+                st.rerun()
+        with bcol2:
+            if st.session_state._batch_queue and st.button("Clear", use_container_width=True):
+                st.session_state._batch_queue = []
+                st.rerun()
+        if st.session_state._batch_queue:
+            st.caption(f"Queue ({len(st.session_state._batch_queue)}): {', '.join(st.session_state._batch_queue[:8])}" +
+                      (f" ..." if len(st.session_state._batch_queue) > 8 else ""))
+
+        # Run Analysis — ALWAYS at the bottom
+        st.divider()
         can_run = not st.session_state._running
         if st.button("▶  Run Analysis", type="primary", disabled=not can_run, use_container_width=True):
             st.session_state._running = True
@@ -330,36 +365,6 @@ def run():
             t.start()
             st.session_state._thread = t
             st.rerun()
-
-        # Batch analysis
-        st.divider()
-        st.markdown("**Batch Analysis**")
-        batch_symbols = st.text_area("batch_input", placeholder="600519, 000001, 688775", label_visibility="collapsed", height=68)
-        batch_list = [s.strip() for s in batch_symbols.replace("\n", ",").split(",") if s.strip()] if batch_symbols else []
-        if batch_list and st.button("Add to Queue", use_container_width=True):
-            for s in batch_list:
-                if s not in st.session_state._batch_queue:
-                    st.session_state._batch_queue.append(s)
-            st.rerun()
-        if st.session_state._batch_queue:
-            st.caption(f"Queue: {', '.join(st.session_state._batch_queue[:10])}" +
-                      (f" +{len(st.session_state._batch_queue)-10}" if len(st.session_state._batch_queue) > 10 else ""))
-            if st.button("Clear Queue", use_container_width=True):
-                st.session_state._batch_queue = []
-                st.session_state._batch_running = False
-                st.rerun()
-
-        # Data source health indicators
-        st.divider()
-        st.markdown("**Data Sources**")
-        hc1, hc2, hc3 = st.columns(3)
-        for col, (label, key) in zip([hc1, hc2, hc3], [
-            ("Futu", "futu"), ("Baostock", "baostock"), ("Eastmoney", "eastmoney"),
-        ]):
-            status = st.session_state.get(f"_health_{key}", "?")
-            color = {"OK": "green", "?": "gray"}.get(status, "orange")
-            with col:
-                st.markdown(f":{color}[●] {label}", help=f"Status: {status}")
 
         # Report export (after analysis done)
         if st.session_state._done and not st.session_state._running:

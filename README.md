@@ -72,7 +72,7 @@ tradingagents-api                         # REST API → http://localhost:8000/d
 ### Dashboard
 
 Professional financial dashboard with:
-- **14 stock metrics**: Symbol, Name, Price, Change, PE-TTM, PE-动, Turnover, Market Cap, 成交额, 量比, 流通股, 总股本, 盈利?, PB
+- **14 stock metrics**: Symbol, Name, Price, Change, PE-TTM, Forward PE, Turnover, Market Cap, Amount, Volume Ratio, Float Shares, Total Shares, Profitability, PB
 - **Interactive K-line chart**: candlestick + volume, red-up/green-down (Chinese convention)
 - **Analyst Voting Table**: 7 analysts each output `[DIRECTION]` + `[KPI]` structured line, tally shown as "Bull N · Bear M · Neutral K"
 - **Investment Director Decision Summary**: structured table from SignalProcessor (rating, confidence, risk score, reasoning, position advice, time horizon)

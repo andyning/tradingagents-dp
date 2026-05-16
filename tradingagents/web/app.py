@@ -60,6 +60,12 @@ st.markdown("""<style>
     .dash-panel { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px 20px; box-shadow: 0 1px 2px rgba(0,0,0,.04); margin-bottom: 10px; }
     .dash-panel h4 { color: #111827; font-size: 1.36rem; font-weight: 600; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #f1f5f9; }
     .dash-panel p { font-size: 1.28rem; color: #4b5563; line-height: 1.5; }
+    /* Tab titles */
+    [data-baseweb="tab"] button,
+    [data-baseweb="tab"] p,
+    [data-baseweb="tab"] span,
+    button[data-baseweb="tab"] { font-size: 1.28rem !important; font-weight: 700 !important; }
+    .stTabs [data-baseweb="tab"] { font-size: 1.28rem !important; font-weight: 700 !important; }
     .stProgress > div > div > div > div { background: #2563eb; }
     /* Input field emphasis */
     section[data-testid="stSidebar"] input[type="text"],
@@ -752,17 +758,17 @@ def run():
         st.markdown(f'<span class="badge badge-{rating}">{rating}</span>', unsafe_allow_html=True)
 
         tab_labels = [
-            "Dashboard 总览", "Market 技术", "Sentiment 舆情", "News 新闻", "Fundamentals 基本面",
-            "Policy 政策", "Hot Money 资金", "Lockup 解禁", "Invest Plan 投资计划", "Trader Plan 交易方案",
+            "Dashboard", "Market", "Sentiment", "News", "Fundamentals",
+            "Policy", "Hot Money", "Lockup", "Invest Plan", "Trader Plan",
         ]
         tabs = st.tabs(tab_labels)
 
         report_keys = [
-            ("Market/Tech 技术分析", "market_report"), ("Sentiment 舆情分析", "sentiment_report"),
-            ("News 新闻分析", "news_report"), ("Fundamentals 基本面分析", "fundamentals_report"),
-            ("Policy 政策分析", "policy_report"), ("Hot Money 资金分析", "hot_money_report"),
-            ("Lockup 解禁分析", "lockup_report"), ("Invest Plan 投资计划", "investment_plan"),
-            ("Trader Plan 交易方案", "trader_investment_plan"),
+            ("Market/Tech", "market_report"), ("Sentiment", "sentiment_report"),
+            ("News", "news_report"), ("Fundamentals", "fundamentals_report"),
+            ("Policy", "policy_report"), ("Hot Money", "hot_money_report"),
+            ("Lockup", "lockup_report"), ("Invest Plan", "investment_plan"),
+            ("Trader Plan", "trader_investment_plan"),
         ]
 
         # ── Tab 0: Dashboard ──
@@ -858,13 +864,13 @@ def run():
             st.markdown("#### 7-Analyst Reports")
             import re as _re
             analyst_reports = [
-                ("Market/Tech 技术分析", "market_report", "K-line, Technical indicators, Price/Volume history"),
-                ("Sentiment 舆情分析", "sentiment_report", "News headlines, Market breadth, Social sentiment"),
-                ("News 新闻分析", "news_report", "Eastmoney/Sina (A-stock), IB News/Yfinance (US/HK)"),
-                ("Fundamentals 基本面分析", "fundamentals_report", "PE/PB, Financial statements, Profitability metrics"),
-                ("Policy 政策分析", "policy_report", "Policy news, Regulatory announcements, Macro data"),
-                ("Hot Money 资金分析", "hot_money_report", "Fund flow (北向资金), Capital flow, Volume analysis"),
-                ("Lockup 解禁分析", "lockup_report", "Lockup expiry data, Insider transactions, Share pledge"),
+                ("Market/Tech", "market_report", "K-line, Technical indicators, Price/Volume history"),
+                ("Sentiment", "sentiment_report", "News headlines, Market breadth, Social sentiment"),
+                ("News", "news_report", "Eastmoney/Sina (A-stock), IB News/Yfinance (US/HK)"),
+                ("Fundamentals", "fundamentals_report", "PE/PB, Financial statements, Profitability metrics"),
+                ("Policy", "policy_report", "Policy news, Regulatory announcements, Macro data"),
+                ("Hot Money", "hot_money_report", "Fund flow (北向资金), Capital flow, Volume analysis"),
+                ("Lockup", "lockup_report", "Lockup expiry data, Insider transactions, Share pledge"),
             ]
             report_rows = ""
             for label, key, data_input in analyst_reports:

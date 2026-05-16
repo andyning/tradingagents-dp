@@ -9,7 +9,7 @@ Supports A-shares (SH/SZ), HK stocks, and US stocks.
 
 from __future__ import annotations
 
-import time
+import threading
 from datetime import date
 
 import pandas as pd
@@ -33,8 +33,30 @@ def _futu_symbol(symbol: str, market: str) -> str:
     return s
 
 
+# Shared persistent Futu connection
+_futu_ctx = None
+_futu_lock = threading.Lock()
+
+
+def _get_shared_futu():
+    """Get or create a persistent Futu OpenQuoteContext."""
+    global _futu_ctx
+    if _futu_ctx is not None:
+        return _futu_ctx
+    with _futu_lock:
+        if _futu_ctx is not None:
+            return _futu_ctx
+        try:
+            from futu import OpenQuoteContext
+            _futu_ctx = OpenQuoteContext(host="127.0.0.1", port=11111)
+            logger.debug("Futu persistent connection established")
+            return _futu_ctx
+        except Exception:
+            return None
+
+
 class FutuSource(DataSource):
-    """Futu OpenD adapter. Requires OpenD gateway running locally."""
+    """Futu OpenD adapter — uses persistent shared connection."""
 
     name = "futu"
 
@@ -42,21 +64,8 @@ class FutuSource(DataSource):
         self.market = market
 
     def _get_ctx(self):
-        """Create a fresh OpenQuoteContext. Caller must close it."""
-        try:
-            from futu import OpenQuoteContext
-            ctx = OpenQuoteContext(host="127.0.0.1", port=11111)
-            return ctx
-        except Exception:
-            return None
-
-    @staticmethod
-    def _close_ctx(ctx):
-        try:
-            if ctx:
-                ctx.close()
-        except Exception:
-            pass
+        """Get the shared persistent Futu connection."""
+        return _get_shared_futu()
 
     # ---- K-line ----
 
@@ -120,8 +129,7 @@ class FutuSource(DataSource):
         except Exception as exc:
             logger.debug("Futu K-line failed: %s", exc)
             return pd.DataFrame()
-        finally:
-            self._close_ctx(ctx)
+        # Connection stays open — shared persistent
 
     # ---- Quote ----
 
@@ -138,8 +146,7 @@ class FutuSource(DataSource):
             return df
         except Exception:
             return pd.DataFrame()
-        finally:
-            self._close_ctx(ctx)
+        # Connection stays open — shared persistent
 
     # ---- Financial summary ----
     def financial_summary(self, symbol: str) -> pd.DataFrame:

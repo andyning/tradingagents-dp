@@ -121,6 +121,12 @@ def _fetch_stock_data(symbol: str, market: str, days: int = 30):
         end = pd.Timestamp.now().strftime("%Y-%m-%d")
         start = (pd.Timestamp.now() - pd.Timedelta(days=int(days * 1.6))).strftime("%Y-%m-%d")
         df = mod.get_kline_daily(symbol, start, end)
+        # Auto-update health: if kline succeeded, some source is working
+        if not df.empty:
+            if market == "a_stock":
+                st.session_state._health_baostock = "OK"
+            st.session_state._health_futu = "OK"
+            st.session_state._health_efinance = "OK"
         info = {"symbol": symbol, "market": market, "name": symbol}
         if not df.empty:
             last = df.iloc[-1]
@@ -378,28 +384,6 @@ def _build_export_report(state: dict, symbol: str, trade_date: str, market: str,
     return "\n".join(sections)
 
 
-@st.cache_resource
-def _check_data_sources():
-    """Run health checks once per session. TCP socket checks, fast."""
-    result = {}
-    tests = [
-        ("futu", "127.0.0.1", 11111),
-        ("baostock", "114.94.20.73", 10030),
-        ("efinance", "push2.eastmoney.com", 443),
-        ("akshare", "push2.eastmoney.com", 443),
-        ("yfinance", "query1.finance.yahoo.com", 443),
-    ]
-    for key, host, port in tests:
-        try:
-            import socket
-            s = socket.socket(); s.settimeout(3)
-            s.connect((host, port)); s.close()
-            result[key] = "OK"
-        except Exception:
-            result[key] = "DOWN"
-    return result
-
-
 # ── Main ────────────────────────────────────────────────────────────────
 def run():
     from tradingagents.graph.progress import get_progress, STEP_LABELS
@@ -465,17 +449,9 @@ def run():
         _save_session(symbol, depth, data_window)
         st.divider()
 
-        # Data Sources Status — lazy, updates on use or manual refresh
+        # Data Sources Status — auto-updates when sources are accessed
         st.divider()
-        hcol1, hcol2 = st.columns([4, 1])
-        with hcol1:
-            st.markdown("**Data Sources Status**")
-        with hcol2:
-            if st.button("Refresh", key="health_refresh", help="Re-check all data sources"):
-                result = _check_data_sources()
-                for k, v in result.items():
-                    st.session_state[f"_health_{k}"] = v
-                st.rerun()
+        st.markdown("**Data Sources Status**")
         all_sources = [
             ("Futu", "futu"), ("Baostock", "baostock"),
             ("akshare", "akshare"), ("efinance", "efinance"), ("yfinance", "yfinance"),

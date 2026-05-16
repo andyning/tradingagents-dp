@@ -679,19 +679,42 @@ def run():
             # ── Decision Summary Table ──
             st.markdown("#### Investment Director — Decision Summary")
             dec_fields = []
-            # Primary: SignalProcessor structured data
-            if isinstance(signal, dict) and signal.get("reasoning"):
-                dec_fields.append(("Reasoning", signal["reasoning"]))
-            # Supplement: markdown fields from PM output
-            for line in decision.split("\n"):
-                line = line.strip()
-                if line.startswith("**") and "**:" in line:
-                    parts = line.split("**: ", 1)
-                    key = parts[0].replace("**", "").strip()
-                    val = parts[1].strip()
-                    if key.lower() not in ("rating", "confidence", "risk_score") and val:
-                        if not any(k == key for k, _ in dec_fields):
-                            dec_fields.append((key, val))
+            key_labels = {
+                "rating": "Rating", "confidence": "Confidence",
+                "reasoning": "Reasoning", "risk_assessment": "Risk Assessment",
+                "position_advice": "Position Advice", "time_horizon": "Time Horizon",
+                "executive_summary": "Executive Summary",
+                "investment_thesis": "Investment Thesis",
+            }
+            # Format 1: Python dict literal {'key': 'value', ...}
+            if decision.strip().startswith("{") and decision.strip().endswith("}"):
+                try:
+                    import ast
+                    data = ast.literal_eval(decision.strip())
+                    if isinstance(data, dict):
+                        for k, v in data.items():
+                            label = key_labels.get(k, k.replace("_", " ").title())
+                            if True:
+                                dec_fields.append((label, str(v) if not isinstance(v, str) else v))
+                except Exception:
+                    pass
+            # Format 2: Markdown **Key**: value
+            if not dec_fields:
+                for line in decision.split("\n"):
+                    line = line.strip()
+                    if line.startswith("**") and "**:" in line:
+                        parts = line.split("**: ", 1)
+                        key = parts[0].replace("**", "").strip()
+                        val = parts[1].strip()
+                        if val:
+                            label = key_labels.get(key.lower(), key)
+                            dec_fields.append((label, val))
+            # Format 3: SignalProcessor structured data
+            if not dec_fields and isinstance(signal, dict) and signal:
+                for k in ("reasoning", "risk_score", "confidence"):
+                    if signal.get(k):
+                        dec_fields.append((key_labels.get(k, k.title()), str(signal[k])))
+
             if dec_fields:
                 rows = "".join(
                     f'<tr><td style="padding:10px 16px;color:#6b7280;font-weight:600;white-space:nowrap;border-bottom:1px solid #f1f5f9;vertical-align:top;width:160px">{k}</td>'
@@ -702,8 +725,7 @@ def run():
             else:
                 clean = " ".join(l.strip() for l in (decision or "").split("\n") if l.strip() and not l.strip().startswith("#") and not l.strip().startswith("**Rating"))
                 if clean:
-                    rows = f'<tr><td style="padding:10px 16px;color:#6b7280;font-weight:600;white-space:nowrap;border-bottom:1px solid #f1f5f9;vertical-align:top;width:160px">Summary</td><td style="padding:10px 16px;color:#111827;border-bottom:1px solid #f1f5f9;font-size:0.88rem;line-height:1.55">{clean[:600]}</td></tr>'
-                    st.markdown(f'<table style="width:100%;border-collapse:collapse;margin-bottom:12px">{rows}</table>', unsafe_allow_html=True)
+                    st.markdown(f'<table style="width:100%;border-collapse:collapse;margin-bottom:12px"><tr><td style="padding:10px 16px;color:#6b7280;font-weight:600;white-space:nowrap;border-bottom:1px solid #f1f5f9;vertical-align:top;width:160px">Summary</td><td style="padding:10px 16px;color:#111827;border-bottom:1px solid #f1f5f9;font-size:0.88rem;line-height:1.55">{clean[:600]}</td></tr></table>', unsafe_allow_html=True)
 
             # ── 7 Analysts Votes ──
             st.markdown("#### 7-Analysts Voting Summary")

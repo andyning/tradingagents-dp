@@ -122,16 +122,72 @@ def _fetch_stock_data(symbol: str, market: str, days: int = 30):
         info = {"symbol": symbol, "market": market, "name": symbol}
         if not df.empty:
             last = df.iloc[-1]
-            for k in ("close", "pe", "pb", "change_pct", "volume", "turn"):
+            for k in ("close", "pe", "pb", "change_pct", "volume", "turn", "amount"):
                 try:
                     info[k] = float(pd.to_numeric(last[k], errors="coerce"))
                 except Exception:
                     info[k] = None
+            # Volume ratio: last 5-day avg vs 20-day avg
+            try:
+                vol = pd.to_numeric(df["volume"], errors="coerce")
+                if len(vol) >= 20:
+                    info["vol_ratio"] = float(vol.iloc[-5:].mean() / vol.iloc[-20:].mean())
+            except Exception:
+                info["vol_ratio"] = None
         # Get display name — multi-source fallback per market
         info["name"] = _lookup_stock_name(symbol, market)
+        # Enrich with extra metrics from Futu if available
+        info = _enrich_stock_info(info, symbol, market)
         return info, df
     except Exception:
         return {"symbol": symbol, "market": market, "name": symbol}, pd.DataFrame()
+
+
+def _enrich_stock_info(info: dict, symbol: str, market: str) -> dict:
+    """Add extra metrics: market cap, float shares, etc. from Futu."""
+    try:
+        from futu import OpenQuoteContext
+        futu_sym = symbol.strip().upper()
+        if market == "a_stock":
+            futu_sym = f"{'SH' if futu_sym.startswith('6') else 'SZ'}.{futu_sym}"
+        elif market == "hk_stock":
+            futu_sym = f"HK.{futu_sym:0>5}"
+        else:
+            futu_sym = f"US.{futu_sym}"
+        ctx = OpenQuoteContext(host="127.0.0.1", port=11111)
+        ret, df = ctx.get_market_snapshot([futu_sym])
+        ctx.close()
+        if ret == 0 and df is not None and not df.empty:
+            row = df.iloc[0]
+            # Map Futu fields to our info dict
+            field_map = {
+                "market_cap": "market_cap",        # 总市值
+                "circular_cap": "circular_cap",    # 流通市值
+                "total_shares": "total_shares",    # 总股本
+                "float_shares": "float_shares",    # 流通股
+                "amplitude": "amplitude",           # 振幅
+                "pe_forward": "pe_forward",         # PE-动 (forward PE)
+            }
+            for src, dst in field_map.items():
+                try:
+                    val = row.get(src)
+                    if val is not None and str(val) != "nan" and val > 0:
+                        info[dst] = float(val)
+                except Exception:
+                    pass
+            # Earnings status
+            try:
+                eps = row.get("eps_ttm") or row.get("basic_eps")
+                if eps is not None:
+                    eps_val = float(eps)
+                    info["is_profitable"] = "盈利" if eps_val > 0 else "亏损"
+                else:
+                    info["is_profitable"] = "—"
+            except Exception:
+                info["is_profitable"] = "—"
+    except Exception:
+        pass
+    return info
 
 
 def _lookup_stock_name(symbol: str, market: str) -> str:
@@ -488,28 +544,54 @@ def run():
         if st.button("Refresh", key="refresh_data_btn", help="Refresh stock data & K-line chart"):
             _fetch_stock_data.clear()
             st.rerun()
-    cols = st.columns(7)
-    items = [
-        ("Symbol", symbol),
-        ("Name", str(info.get("name", "—"))),
-        ("Price", f"¥{info['close']:.2f}" if info.get("close") and info["close"] == info["close"] else "—"),
-        ("Change", info.get("change_pct")),
-        ("PE", info.get("pe")),
-        ("PB", info.get("pb")),
-        ("Turnover", f"{info.get('turn', 0):.2f}%" if info.get("turn") and info["turn"] == info["turn"] else "—"),
-    ]
-    for i, (label, value) in enumerate(items):
-        with cols[i]:
-            if label == "Change" and isinstance(value, (int, float)) and value == value:
-                cls = "up" if value >= 0 else "down"
-                sgn = "+" if value >= 0 else ""
-                st.markdown(f'<div class="mc"><div class="mcl">{label}</div><div class="mcv {cls}">{sgn}{value:.2f}%</div></div>', unsafe_allow_html=True)
-            elif label == "PE" and isinstance(value, (int, float)) and value == value:
-                st.markdown(f'<div class="mc"><div class="mcl">{label}</div><div class="mcv">{value:.1f}</div></div>', unsafe_allow_html=True)
-            elif label == "PB" and isinstance(value, (int, float)) and value == value:
-                st.markdown(f'<div class="mc"><div class="mcl">{label}</div><div class="mcv">{value:.2f}</div></div>', unsafe_allow_html=True)
-            else:
-                st.markdown(f'<div class="mc"><div class="mcl">{label}</div><div class="mcv">{value}</div></div>', unsafe_allow_html=True)
+
+    def _mc(label, value, fmt=None, color_class=""):
+        if value is None or (isinstance(value, float) and value != value):
+            display = "—"
+        elif fmt == "pct":
+            sgn = "+" if value >= 0 else ""
+            display = f"{sgn}{value:.2f}%"
+        elif fmt == "pe":
+            display = f"{value:.1f}"
+        elif fmt == "f2":
+            display = f"{value:.2f}"
+        elif fmt == "big":
+            if abs(value) >= 1e8: display = f"{value/1e8:.2f}亿"
+            elif abs(value) >= 1e4: display = f"{value/1e4:.0f}万"
+            else: display = f"{value:.0f}"
+        elif fmt == "shares":
+            if abs(value) >= 1e8: display = f"{value/1e8:.2f}亿股"
+            else: display = f"{value/1e4:.0f}万股"
+        else:
+            display = str(value)[:16]
+        st.markdown(f'<div class="mc"><div class="mcl">{label}</div><div class="mcv {color_class}">{display}</div></div>', unsafe_allow_html=True)
+
+    # Row 1
+    r1 = st.columns(7)
+    with r1[0]: _mc("Symbol", symbol)
+    with r1[1]: _mc("Name", str(info.get("name", "—")))
+    with r1[2]:
+        close = info.get("close")
+        _mc("Price", f"¥{close:.2f}" if close and close == close else None)
+    with r1[3]:
+        chg = info.get("change_pct")
+        cls = "up" if (chg or 0) >= 0 else "down"
+        _mc("Change", chg, fmt="pct", color_class=cls)
+    with r1[4]: _mc("PE-TTM", info.get("pe"), fmt="pe")
+    with r1[5]: _mc("PE-动", info.get("pe_forward"), fmt="pe")
+    with r1[6]: _mc("Turnover%", info.get("turn"), fmt="f2")
+
+    # Row 2
+    r2 = st.columns(7)
+    with r2[0]: _mc("Market Cap", info.get("market_cap"), fmt="big")
+    with r2[1]: _mc("成交额", info.get("amount"), fmt="big")
+    with r2[2]: _mc("量比", info.get("vol_ratio"), fmt="f2")
+    with r2[3]: _mc("流通股", info.get("float_shares"), fmt="shares")
+    with r2[4]: _mc("总股本", info.get("total_shares"), fmt="shares")
+    with r2[5]: _mc("盈利?", info.get("is_profitable", "—"))
+    with r2[6]: _mc("PB", info.get("pb"), fmt="f2")
+
+    st.markdown('<div style="margin-top:16px"></div>', unsafe_allow_html=True)
 
     # ═══ K-line chart ═══
     if not kline_df.empty:

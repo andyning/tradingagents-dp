@@ -394,7 +394,7 @@ def run():
 
     # Build health dict from session state (initial: all "?")
     health_status = {}
-    for k in ("futu", "baostock", "efinance", "akshare", "yfinance"):
+    for k in ("futu", "ib", "baostock", "efinance", "akshare", "yfinance"):
         health_status[k] = st.session_state.get(f"_health_{k}", "?")
 
     # Init session keys
@@ -456,8 +456,8 @@ def run():
         # Data Sources Status — auto-updates when sources are accessed
         st.divider()
         st.markdown("**Data Sources Status**")
-        all_sources = ["futu", "baostock", "akshare", "efinance", "yfinance"]
-        labels = {"futu": "Futu", "baostock": "Baostock", "akshare": "akshare",
+        all_sources = ["futu", "ib", "baostock", "akshare", "efinance", "yfinance"]
+        labels = {"futu": "Futu", "ib": "IB", "baostock": "Baostock", "akshare": "akshare",
                   "efinance": "efinance", "yfinance": "yfinance"}
         cols = st.columns(2)
         for i, key in enumerate(all_sources):

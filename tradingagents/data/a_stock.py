@@ -15,12 +15,14 @@ from tradingagents.data.sources.baostock import BaostockSource
 from tradingagents.data.sources.efinance import EfinanceSource
 from tradingagents.data.sources.akshare import AkshareSource
 from tradingagents.data.sources.futu import FutuSource
+from tradingagents.data.sources.ib import IBSource
 from tradingagents.data.sources.yfinance import YFinanceSource
 from tradingagents.logging import get_logger
 
 logger = get_logger(__name__)
 
 # Singleton source instances
+_ib = IBSource(market="a_stock")
 _futu = FutuSource(market="a_stock")
 _baostock = BaostockSource()
 _efinance = EfinanceSource()
@@ -38,6 +40,7 @@ def get_kline_daily(
         symbol, "kline_daily",
         sources=[
             ("futu", lambda **kw: _futu.kline_daily(**kw)),
+            ("ib", lambda **kw: _ib.kline_daily(**kw)),
             ("baostock", lambda **kw: _baostock.kline_daily(**kw)),
             ("efinance", lambda **kw: _efinance.kline_daily(**kw)),
             ("yfinance", lambda **kw: _yfinance.kline_daily(**kw)),

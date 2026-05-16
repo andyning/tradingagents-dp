@@ -505,7 +505,7 @@ def for_backtest(state: dict[str, Any]) -> str:
         rsi_signal = pd.Series(0, index=close.index)
         rsi_signal[rsi < 30] = 1
         rsi_signal[rsi > 70] = 0
-        rsi_signal = rsi_signal.fillna(method="ffill").fillna(0)
+        rsi_signal = rsi_signal.ffill().fillna(0)
         s3 = _simulate(rsi_signal.astype(int), close, daily_ret)
 
         strategies = [

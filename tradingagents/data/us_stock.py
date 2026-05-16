@@ -80,15 +80,9 @@ def get_quote(symbol: str) -> pd.DataFrame:
 
 
 def get_financial_summary(symbol: str) -> pd.DataFrame:
-    return with_fallback(
-        symbol, "financial_summary_us",
-        sources=[
-            ("yfinance", lambda **kw: _yfinance.financial_summary(**kw)),
-            ("efinance", lambda **kw: _efinance.financial_summary(**kw)),
-        ],
-        params={"symbol": symbol},
-        cache_ttl_hours=2,
-    )
+    # US financial summary is handled by Futu snapshot in data_context
+    # yfinance is blocked in China — skip to avoid 36s timeout
+    return pd.DataFrame()
 
 
 def get_balance_sheet(symbol: str) -> pd.DataFrame:

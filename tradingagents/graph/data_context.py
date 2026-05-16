@@ -311,11 +311,10 @@ def for_lockup_analyst(state: dict[str, Any]) -> str:
 
 
 def for_backtest(state: dict[str, Any]) -> str:
-    """Run a lightweight backtest and return a text summary.
+    """Run multiple lightweight strategies and return comparison.
 
-    Uses a simple MA crossover strategy (5/20) on up to 250 days
-    of historical data. Provides win rate, return vs buy-and-hold,
-    and max drawdown — enough for the LLM to assess trend-following viability.
+    Strategies: MA crossover (5/20), MACD signal cross, RSI mean-reversion.
+    Each produces return, max drawdown, win rate, and alpha vs buy-and-hold.
     """
     symbol = state["company_of_interest"]
     trade_date = state["trade_date"]
@@ -332,60 +331,166 @@ def for_backtest(state: dict[str, Any]) -> str:
         if len(close) < 60:
             return "## 历史回测\n(历史数据不足，无法进行回测)\n"
 
-        ma5 = close.rolling(5).mean()
-        ma20 = close.rolling(20).mean()
-        signal = (ma5 > ma20).astype(int).diff().fillna(0)
-
         daily_ret = close.pct_change().fillna(0)
-        strategy_ret = daily_ret * ((ma5 > ma20).astype(int).shift(1).fillna(0))
-        bh_ret = daily_ret
-
-        strat_cum = (1 + strategy_ret).cumprod()
-        bh_cum = (1 + bh_ret).cumprod()
-        strat_total = float((strat_cum.iloc[-1] - 1) * 100)
+        bh_cum = (1 + daily_ret).cumprod()
         bh_total = float((bh_cum.iloc[-1] - 1) * 100)
-
-        strat_peak = strat_cum.cummax()
-        strat_dd = float(((strat_cum / strat_peak - 1).min()) * 100)
         bh_peak = bh_cum.cummax()
         bh_dd = float(((bh_cum / bh_peak - 1).min()) * 100)
-
-        wins = 0
-        total_trades = 0
-        in_position = False
-        entry_price = 0.0
-        for i in range(1, len(close)):
-            if signal.iloc[i] == 1 and not in_position:
-                entry_price = close.iloc[i]
-                in_position = True
-                total_trades += 1
-            elif signal.iloc[i] == -1 and in_position:
-                if close.iloc[i] > entry_price:
-                    wins += 1
-                in_position = False
-        win_rate = (wins / total_trades * 100) if total_trades > 0 else 0
-
         days = len(close)
-        parts = [
-            "## 历史回测 (MA5/20 金叉死叉策略)\n",
-            f"- **回测区间**: {days} 个交易日",
-            f"- **策略累计收益**: {strat_total:+.1f}%",
-            f"- **买入持有收益**: {bh_total:+.1f}%",
-            f"- **策略最大回撤**: {strat_dd:.1f}% (持有: {bh_dd:.1f}%)",
-            f"- **交易次数**: {total_trades} | **胜率**: {win_rate:.0f}%",
-            f"- **Alpha**: {strat_total - bh_total:+.1f}%",
+
+        def _simulate(position_signal: "pd.Series", close_prices, daily_rets) -> dict:
+            """Run a strategy simulation and return metrics."""
+            rets = daily_rets * position_signal.shift(1).fillna(0)
+            cum = (1 + rets).cumprod()
+            total = float((cum.iloc[-1] - 1) * 100)
+            peak = cum.cummax()
+            dd = float(((cum / peak - 1).min()) * 100)
+            # Trade counting
+            sig_diff = position_signal.diff().fillna(0)
+            buys = (sig_diff == 1).sum()
+            sells = (sig_diff == -1).sum()
+            trades = min(buys, sells)
+            wins = 0
+            in_pos = False
+            entry = 0.0
+            for i in range(1, len(close_prices)):
+                if sig_diff.iloc[i] == 1 and not in_pos:
+                    entry = close_prices.iloc[i]; in_pos = True
+                elif sig_diff.iloc[i] == -1 and in_pos:
+                    if close_prices.iloc[i] > entry: wins += 1
+                    in_pos = False
+            wr = (wins / trades * 100) if trades > 0 else 0
+            return {"return": total, "max_dd": dd, "trades": int(trades), "win_rate": wr,
+                    "alpha": total - bh_total, "cum_ret": cum}
+
+        # ── Strategy 1: MA Crossover (5/20) ──
+        ma5 = close.rolling(5).mean()
+        ma20 = close.rolling(20).mean()
+        s1 = _simulate((ma5 > ma20).astype(int), close, daily_ret)
+
+        # ── Strategy 2: MACD Signal Cross ──
+        ema12 = close.ewm(span=12, adjust=False).mean()
+        ema26 = close.ewm(span=26, adjust=False).mean()
+        macd_line = ema12 - ema26
+        macd_signal = macd_line.ewm(span=9, adjust=False).mean()
+        s2 = _simulate((macd_line > macd_signal).astype(int), close, daily_ret)
+
+        # ── Strategy 3: RSI Mean-Reversion ──
+        delta = close.diff()
+        gain = delta.clip(lower=0).rolling(14).mean()
+        loss = (-delta).clip(lower=0).rolling(14).mean()
+        rs = gain / loss.replace(0, float("nan"))
+        rsi = 100 - (100 / (1 + rs))
+        rsi_signal = pd.Series(0, index=close.index)
+        rsi_signal[rsi < 30] = 1
+        rsi_signal[rsi > 70] = 0
+        rsi_signal = rsi_signal.fillna(method="ffill").fillna(0)
+        s3 = _simulate(rsi_signal.astype(int), close, daily_ret)
+
+        strategies = [
+            ("MA5/20 金叉", s1), ("MACD 信号交叉", s2), ("RSI 超卖反弹", s3),
         ]
-        if strat_total > bh_total and win_rate > 50:
-            parts.append("- **特征**: 趋势跟随有效，MA 交叉策略显著跑赢持有")
-        elif strat_total > bh_total:
-            parts.append("- **特征**: 策略跑赢但胜率偏低，依赖少数大盈利交易")
-        elif win_rate < 50:
-            parts.append("- **特征**: 均线交叉信号可靠性低，价格呈震荡/均值回归特征")
+
+        parts = [
+            f"## 多策略历史回测 ({days} 个交易日)\n",
+            f"**买入持有**: {bh_total:+.1f}% / 最大回撤 {bh_dd:.1f}%\n",
+            "| 策略 | 收益 | 最大回撤 | 胜率 | 交易次数 | Alpha | 特征 |",
+            "|------|------|----------|------|----------|-------|------|",
+        ]
+
+        for name, s in strategies:
+            if s["return"] > bh_total + 5:
+                feature = "趋势跟踪"
+            elif s["win_rate"] > 55:
+                feature = "高胜率"
+            elif s["return"] > bh_total:
+                feature = "略优持有"
+            elif s["max_dd"] < bh_dd:
+                feature = "低回撤"
+            else:
+                feature = "效果一般"
+
+            parts.append(
+                f"| {name} | {s['return']:+.1f}% | {s['max_dd']:.1f}% | "
+                f"{s['win_rate']:.0f}% | {s['trades']} | {s['alpha']:+.1f}% | {feature} |"
+            )
+
+        # Best strategy recommendation
+        best = max(strategies, key=lambda x: x[1]["alpha"])
+        parts.append("")
+        parts.append(f"**最佳策略**: {best[0]} (Alpha {best[1]['alpha']:+.1f}%)")
+        if best[1]["alpha"] > 10:
+            parts.append("- 该股呈现明确的趋势特征，顺势策略有效")
+        elif best[1]["alpha"] < -5:
+            parts.append("- 所有主动策略均未能跑赢持有，该股适合被动持有或观望")
         else:
-            parts.append("- **特征**: 策略未跑赢持有，趋势跟踪效果一般")
+            parts.append("- 策略Alpha有限，需结合基本面判断入场时机")
         parts.append("")
         return "\n".join(parts)
 
     except Exception as exc:
         logger.warning("Backtest summary failed: %s", exc)
         return "## 历史回测\n(回测计算异常，跳过)\n"
+
+
+def for_industry_comparison(state: dict[str, Any]) -> str:
+    """Fetch industry peers and compute comparison metrics."""
+    symbol = state["company_of_interest"]
+    market = state.get("market", "a_stock")
+
+    if market != "a_stock":
+        return "## 行业对比\n(仅A股支持行业对比)\n"
+
+    try:
+        trade_date = state["trade_date"]
+        start = pd.Timestamp(trade_date) - pd.Timedelta(days=30)
+        df_self = a_stock.get_kline_daily(symbol, start.strftime("%Y-%m-%d"), trade_date)
+        self_pe = None
+        if not df_self.empty:
+            last = df_self.iloc[-1]
+            self_pe = pd.to_numeric(last.get("pe", float("nan")), errors="coerce")
+            self_pb = pd.to_numeric(last.get("pb", float("nan")), errors="coerce")
+
+        hot = a_stock.get_hot_stocks(limit=20)
+        peer_metrics = []
+        if not hot.empty:
+            for _, row in hot.head(15).iterrows():
+                try:
+                    sym = str(row.iloc[0]) if len(row) > 0 else ""
+                    if sym and sym.isdigit() and len(sym) == 6 and sym != symbol:
+                        df_p = a_stock.get_kline_daily(sym, trade_date, trade_date)
+                        if not df_p.empty:
+                            p = df_p.iloc[-1]
+                            pe = pd.to_numeric(p.get("pe", float("nan")), errors="coerce")
+                            if pd.notna(pe) and 0 < pe < 1000:
+                                peer_metrics.append({"symbol": sym, "pe": pe})
+                except Exception:
+                    continue
+
+        parts = ["## 行业对比数据\n"]
+        if self_pe is not None and pd.notna(self_pe):
+            parts.append(f"**{symbol} PE(TTM)**: {self_pe:.1f}")
+
+        if peer_metrics:
+            pe_list = [p["pe"] for p in peer_metrics]
+            pe_med = sorted(pe_list)[len(pe_list)//2]
+            pe_min = min(pe_list); pe_max = max(pe_list)
+            parts.append(f"**行业PE中位数**: {pe_med:.1f} (范围 {pe_min:.0f}-{pe_max:.0f}, {len(pe_list)}只股票)")
+            if self_pe is not None and pd.notna(self_pe):
+                pct = sum(1 for p in pe_list if p < self_pe) / len(pe_list) * 100
+                if self_pe > pe_med * 1.2:
+                    judgment = "偏高"
+                elif self_pe < pe_med * 0.8:
+                    judgment = "偏低"
+                else:
+                    judgment = "合理"
+                parts.append(f"**估值水位**: 高于行业 {pct:.0f}% 的同行，估值**{judgment}**")
+        else:
+            parts.append("(行业对比数据暂时不足)")
+
+        parts.append("")
+        return "\n".join(parts)
+
+    except Exception as exc:
+        logger.warning("Industry comparison failed: %s", exc)
+        return "## 行业对比\n(数据暂时不可用)\n"

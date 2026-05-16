@@ -24,6 +24,7 @@ from tradingagents.graph.data_context import (
     for_backtest,
     for_fundamentals_analyst,
     for_hot_money_analyst,
+    for_industry_comparison,
     for_lockup_analyst,
     for_market_analyst,
     for_news_analyst,
@@ -63,14 +64,31 @@ def _base_context(state: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _call_llm_with_retry(messages: list[dict], mode: str = "quick", max_retries: int = 3) -> str:
+    """Call LLM with retry on transient failures."""
+    llm = get_llm_client(mode)
+    last_error = None
+    for attempt in range(max_retries):
+        try:
+            resp = llm.chat(messages)
+            return resp.content or ""
+        except Exception as exc:
+            last_error = exc
+            if attempt < max_retries - 1:
+                time = __import__("time")
+                time.sleep(2 * (attempt + 1))
+                logger.warning("LLM retry %d/%d after: %s", attempt + 1, max_retries, exc)
+    logger.error("LLM failed after %d retries: %s", max_retries, last_error)
+    return ""
+
+
 def _run_analyst(step: str, template: str, state: dict[str, Any], data_context: str) -> str:
     """Common pattern: render prompt, prepend real data, call LLM with progress tracking."""
     start_step(step)
     ctx = _base_context(state)
     prompt = render_prompt(template, **ctx)
     full_prompt = f"{prompt}\n\n---\n\n{data_context}"
-    response = _quick_llm().chat([{"role": "user", "content": full_prompt}])
-    content = response.content or ""
+    content = _call_llm_with_retry([{"role": "user", "content": full_prompt}])
     complete_step(step, content)
     return content
 
@@ -107,7 +125,8 @@ def news_analyst_node(state: dict[str, Any]) -> dict[str, Any]:
 def fundamentals_analyst_node(state: dict[str, Any]) -> dict[str, Any]:
     data = for_fundamentals_analyst(state)
     backtest = for_backtest(state)
-    data = data + "\n\n" + backtest
+    industry = for_industry_comparison(state)
+    data = data + "\n\n" + backtest + "\n\n" + industry
     content = _run_analyst("fundamentals_analyst", "fundamentals_analyst.j2", state, data)
     logger.info("Fundamentals analyst completed (%d chars)", len(content))
     return {"fundamentals_report": content, "sender": "fundamentals_analyst"}

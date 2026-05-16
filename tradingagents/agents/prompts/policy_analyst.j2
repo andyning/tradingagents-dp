@@ -26,10 +26,12 @@ Output Requirements:
 **CRITICAL — First line of your report MUST be exactly:**
 `[DIRECTION]: 看多 or 看空 or 中性 | [KPI]: key1=value1, key2=value2`
 
-If you cannot access real data, output: `[DIRECTION]: 放弃 | [KPI]: 无数据支持`
+If the real data below contains no policy-relevant news, output: `[DIRECTION]: 放弃 | [KPI]: 无数据支持`
+
+⚠️ CRITICAL: Use ONLY the real news data provided below the "---" separator. If no real news is available, explicitly state "数据不足，本次放弃分析" and abstain. DO NOT fabricate policy events or regulatory news.
 
 After the structured line:
-1. Analyze policy signals relevant to {{ symbol }}'s sector and supply chain
+1. Analyze the real policy/macro news data provided below — do NOT fabricate stories
 2. For each policy signal, classify as Strong/Moderate/Weak and Bullish/Bearish/Neutral
 3. Assess whether the current policy environment is favorable, neutral, or unfavorable — with specific evidence
 4. Flag any upcoming policy events (Party Congress sessions, NPC meetings, CSRC briefings, policy windows)

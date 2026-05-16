@@ -331,6 +331,106 @@ def for_lockup_analyst(state: dict[str, Any]) -> str:
     return "\n".join(parts)
 
 
+def for_policy_analyst(state: dict[str, Any]) -> str:
+    """Fetch macro/policy-relevant news for the policy analyst."""
+    symbol = state["company_of_interest"]
+    market = state.get("market", "a_stock")
+    mod = _get_mod(market)
+
+    parts = ["## Policy & Macro News (你必须基于以下真实新闻分析政策影响)\n"]
+    try:
+        # Try to get news through the market module
+        if hasattr(mod, "get_news"):
+            news = mod.get_news(symbol, limit=20)
+            if not news.empty:
+                from tradingagents.graph.news_filter import filter_news
+                raw_items = news.to_dict("records")
+                # Filter for policy/macro-relevant keywords
+                policy_kw = ["policy", "regulation", "fed", "interest", "tariff", "trade",
+                             "ban", "restrict", "subsidy", "congress", "白宫", "国会",
+                             "政策", "监管", "关税", "制裁", "补贴", "央行", "利率",
+                             "cpi", "gdp", "inflation", "employment", "就业", "通胀"]
+                filtered = filter_news(raw_items, symbol, company_name="", max_items=15)
+                if filtered:
+                    for item in filtered:
+                        parts.append(f"- **{item.get('title', '')}** ({item.get('source', '')})")
+                else:
+                    for _, row in news.head(10).iterrows():
+                        parts.append(f"- **{row.get('title', '')}** ({row.get('source', '')})")
+            else:
+                parts.append("(暂无相关新闻数据)")
+        else:
+            parts.append("(该市场暂不支持新闻获取)")
+    except Exception as exc:
+        parts.append(f"(新闻获取失败: {exc})")
+
+    parts.append("")
+    parts.append("Instructions: Analyze how the above news affects the stock's sector and regulatory environment. If no relevant policy news found, state that clearly and base your analysis on known regulatory frameworks for this market.")
+    parts.append("")
+    return "\n".join(parts)
+
+
+def for_sentiment_analyst(state: dict[str, Any]) -> str:
+    """Fetch market-derived sentiment data for the sentiment analyst."""
+    symbol = state["company_of_interest"]
+    trade_date = state["trade_date"]
+    market = state.get("market", "a_stock")
+    mod = _get_mod(market)
+
+    parts = ["## Market-Derived Sentiment Data (基于市场数据的情绪指标)\n"]
+
+    # Quantitative sentiment from K-line
+    try:
+        window = state.get("data_window", 30)
+        start = pd.Timestamp(trade_date) - pd.Timedelta(days=int(window * 1.6))
+        df = mod.get_kline_daily(symbol, start.strftime("%Y-%m-%d"), trade_date)
+        if not df.empty:
+            close = pd.to_numeric(df["close"], errors="coerce")
+            volume = pd.to_numeric(df["volume"], errors="coerce")
+            change_pct = pd.to_numeric(df.get("change_pct", pd.Series(dtype=float)), errors="coerce")
+
+            if len(close) >= 5:
+                last_close = close.iloc[-1] if pd.notna(close.iloc[-1]) else 0
+                chg_5d = (close.iloc[-1] / close.iloc[-5] - 1) * 100 if pd.notna(close.iloc[-5]) and close.iloc[-5] > 0 else 0
+                chg_20d = (close.iloc[-1] / close.iloc[-20] - 1) * 100 if len(close) >= 20 and pd.notna(close.iloc[-20]) and close.iloc[-20] > 0 else 0
+
+                parts.append(f"- **最新收盘价**: {last_close:.2f}")
+                parts.append(f"- **5日涨跌幅**: {chg_5d:+.2f}%")
+                parts.append(f"- **20日涨跌幅**: {chg_20d:+.2f}%")
+
+                if len(volume) >= 20:
+                    vol_5 = volume.iloc[-5:].mean()
+                    vol_20 = volume.iloc[-20:].mean()
+                    vol_ratio = vol_5 / vol_20 if vol_20 > 0 else 0
+                    parts.append(f"- **5日均量/20日均量**: {vol_ratio:.2f} ({'放量' if vol_ratio > 1.2 else '缩量' if vol_ratio < 0.8 else '持平'})")
+
+                if len(change_pct) >= 5:
+                    up_days = (change_pct.iloc[-5:] > 0).sum()
+                    parts.append(f"- **近5日上涨天数**: {up_days}/5")
+
+    except Exception as exc:
+        parts.append(f"(市场数据获取失败: {exc})")
+
+    # News sentiment clues
+    try:
+        if hasattr(mod, "get_news"):
+            news = mod.get_news(symbol, limit=10)
+            if not news.empty:
+                parts.append("")
+                parts.append("### 近期新闻标题 (情绪线索)")
+                for _, row in news.head(8).iterrows():
+                    title = row.get("title", "")
+                    if title:
+                        parts.append(f"- {title}")
+    except Exception:
+        pass
+
+    parts.append("")
+    parts.append("Instructions: Based on the above data, assess market sentiment direction and intensity. Acknowledge limitations — no social media scraping is performed. Use price momentum, volume patterns, and news headlines as proxies for sentiment.")
+    parts.append("")
+    return "\n".join(parts)
+
+
 def for_backtest(state: dict[str, Any]) -> str:
     """Run multiple lightweight strategies and return comparison.
 

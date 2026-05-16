@@ -21,10 +21,12 @@ Output Requirements:
 **CRITICAL — First line of your report MUST be exactly:**
 `[DIRECTION]: 看多 or 看空 or 中性 | [KPI]: key1=value1, key2=value2`
 
-If you cannot access real data, output: `[DIRECTION]: 放弃 | [KPI]: 无数据支持`
+If the real data below is insufficient, output: `[DIRECTION]: 放弃 | [KPI]: 数据不足`
+
+⚠️ CRITICAL: Use ONLY the real market-derived sentiment data provided below the "---" separator. This includes price momentum, volume patterns, and news headlines as sentiment proxies. No social media scraping is performed — acknowledge this limitation. DO NOT fabricate social media sentiment or forum discussions.
 
 After the structured line:
-1. Assess overall sentiment direction, intensity, and trend
+1. Assess sentiment direction, intensity, and trend using the real data
 2. Identify the dominant narrative themes driving sentiment (product, policy, market structure, etc.)
 3. Flag any sentiment extremes that could signal reversals
 4. Note divergence between sentiment and price action

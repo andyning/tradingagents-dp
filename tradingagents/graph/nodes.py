@@ -28,6 +28,8 @@ from tradingagents.graph.data_context import (
     for_lockup_analyst,
     for_market_analyst,
     for_news_analyst,
+    for_policy_analyst,
+    for_sentiment_analyst,
 )
 from tradingagents.graph.progress import complete_step, start_step
 from tradingagents.llm.client import DeepSeekClient, get_llm_client
@@ -105,12 +107,8 @@ def market_analyst_node(state: dict[str, Any]) -> dict[str, Any]:
 
 
 def social_analyst_node(state: dict[str, Any]) -> dict[str, Any]:
-    start_step("social_analyst")
-    ctx = _base_context(state)
-    prompt = render_prompt("social_analyst.j2", **ctx)
-    response = _quick_llm().chat([{"role": "user", "content": prompt}])
-    content = response.content or ""
-    complete_step("social_analyst", content)
+    data = for_sentiment_analyst(state)
+    content = _run_analyst("social_analyst", "social_analyst.j2", state, data)
     logger.info("Social analyst completed (%d chars)", len(content))
     return {"sentiment_report": content, "sender": "social_analyst"}
 
@@ -133,12 +131,8 @@ def fundamentals_analyst_node(state: dict[str, Any]) -> dict[str, Any]:
 
 
 def policy_analyst_node(state: dict[str, Any]) -> dict[str, Any]:
-    start_step("policy_analyst")
-    ctx = _base_context(state)
-    prompt = render_prompt("policy_analyst.j2", **ctx)
-    response = _quick_llm().chat([{"role": "user", "content": prompt}])
-    content = response.content or ""
-    complete_step("policy_analyst", content)
+    data = for_policy_analyst(state)
+    content = _run_analyst("policy_analyst", "policy_analyst.j2", state, data)
     logger.info("Policy analyst completed (%d chars)", len(content))
     return {"policy_report": content, "sender": "policy_analyst"}
 

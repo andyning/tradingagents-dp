@@ -896,52 +896,187 @@ def run():
 
             # ── Decision Chain — 9 senior agents ──
             st.markdown("#### Decision Chain")
+            import re as _re2
+
+            def _first_meaningful(text, max_len=160):
+                """Extract first substantive sentence from text, skipping headers/labels."""
+                if not text:
+                    return "—"
+                for line in text.split("\n"):
+                    s = line.strip().lstrip("#-*• ").strip()
+                    # Skip header lines, formatting garbage, and too-short fragments
+                    if not s or len(s) < 20:
+                        continue
+                    if s.startswith(("```", "---", "===", "[DIRECTION]", "[KPI]")):
+                        continue
+                    if ":" in s[:40] and len(s.split(":")[0]) < 25:
+                        # This is a labeled line like "Recommendation: Buy" — use it
+                        return s[:max_len] + ("…" if len(s) > max_len else "")
+                    if len(s) > 30 and any(
+                        kw in s.lower()
+                        for kw in ["buy", "sell", "hold", "overweight", "underweight",
+                                   "bullish", "bearish", "看好", "看空", "买入", "卖出",
+                                   "growth", "risk", "position", "entry", "stop",
+                                   "recommend", "recommendation", "rating", "target"]
+                    ):
+                        return s[:max_len] + ("…" if len(s) > max_len else "")
+                # Fallback: first line over 20 chars
+                for line in text.split("\n"):
+                    s = line.strip().lstrip("#-*• ").strip()
+                    if len(s) > 20:
+                        return s[:max_len] + ("…" if len(s) > max_len else "")
+                return text[:max_len]
+
+            def _extract_rating(text):
+                """Extract rating keyword from text."""
+                for kw in ["Buy", "Overweight", "Hold", "Underweight", "Sell",
+                           "买入", "增持", "持有", "减持", "卖出"]:
+                    if kw.lower() in text.lower():
+                        return kw
+                return None
+
             chain_items = []
-            # Quality Gate
+
+            # ── 1. Quality Gate ──
             qg = state.get("data_quality_summary", "") if isinstance(state, dict) else ""
             n_a = qg.count(": A") + qg.count(": B") if qg else 0
-            chain_items.append(("Quality Gate", "7 Analyst Reports", f"Reports quality: {n_a}/7 passed"))
+            n_total = 7
+            # Find flagged/failed analysts
+            flagged = []
+            for line in qg.split("\n"):
+                if "⚠ Flagged" in line:
+                    flagged_part = line.split(":", 1)[-1].strip() if ":" in line else ""
+                    flagged = [f.strip() for f in flagged_part.split(",") if f.strip()]
+                    break
+            if flagged:
+                qg_output = f"{n_a}/{n_total} passed. Issues: {', '.join(flagged[:3])}"
+            elif n_a == n_total:
+                qg_output = f"All {n_total} reports passed quality review"
+            else:
+                qg_output = f"{n_a}/{n_total} reports passed quality review"
+            chain_items.append(("Quality Gate", "7 Analyst Reports", qg_output))
 
-            # Debate
+            # ── 2. Bull vs Bear Debate ──
             debate = state.get("investment_debate_state", {}) if isinstance(state, dict) else {}
             rounds = debate.get("count", 0) if isinstance(debate, dict) else 0
-            chain_items.append(("Bull vs Bear Debate", "7 Analyst Reports, Quality Gate summary", f"{rounds} rounds of adversarial debate completed"))
+            bull_hist = debate.get("bull_history", "") if isinstance(debate, dict) else ""
+            bear_hist = debate.get("bear_history", "") if isinstance(debate, dict) else ""
 
-            # Research Manager
+            # Extract last meaningful claim from each side
+            bull_line = ""
+            for line in reversed(bull_hist.split("\n")):
+                s = line.strip()
+                if len(s) > 40 and "Bull Analyst:" not in s:
+                    bull_line = s[:120]
+                    break
+            bear_line = ""
+            for line in reversed(bear_hist.split("\n")):
+                s = line.strip()
+                if len(s) > 40 and "Bear Analyst:" not in s:
+                    bear_line = s[:120]
+                    break
+
+            if bull_line and bear_line:
+                debate_output = f"Bull: {bull_line}… | Bear: {bear_line}…" if len(bull_line) >= 120 or len(bear_line) >= 120 else f"Bull: {bull_line} | Bear: {bear_line}"
+            elif rounds > 0:
+                debate_output = f"Debate completed ({rounds} rounds) — see full report for details"
+            else:
+                debate_output = "Debate not started"
+            chain_items.append(("Bull vs Bear Debate", "7 Analyst Reports, Quality Gate summary", debate_output))
+
+            # ── 3. Research Manager ──
             invest_plan = state.get("investment_plan", "") if isinstance(state, dict) else ""
             rm_rec = ""
+            rm_rationale = ""
             for line in invest_plan.split("\n"):
-                if "Recommendation" in line or "推荐" in line or "Buy" in line or "Sell" in line or "Hold" in line:
-                    rm_rec = line.strip()[:100]
-                    break
-            if not rm_rec and invest_plan:
-                rm_rec = invest_plan.split("\n")[0].strip()[:100]
+                s = line.strip()
+                if ("Recommendation" in s or "推荐" in s) and len(s) > 10:
+                    rm_rec = s[:120]
+                elif ("Rationale" in s or "理由" in s or "原因" in s) and len(s) > 10:
+                    rm_rationale = s[:160]
+            if not rm_rec:
+                # Look for rating keyword directly
+                rating = _extract_rating(invest_plan)
+                if rating:
+                    rm_rec = f"Recommendation: **{rating}**"
+                elif invest_plan:
+                    rm_rec = _first_meaningful(invest_plan, 140)
+            if rm_rationale:
+                rm_rec = f"{rm_rec} — {rm_rationale}"
             chain_items.append(("Research Manager", "Bull vs Bear debate history", rm_rec or "Investment plan generated"))
 
-            # Trader
+            # ── 4. Trader ──
             trader_plan = state.get("trader_investment_plan", "") if isinstance(state, dict) else ""
             tr_action = ""
+            tr_entry = ""
+            tr_stop = ""
             for line in trader_plan.split("\n"):
-                if "Action" in line or "方向" in line or "BUY" in line.upper() or "SELL" in line.upper():
-                    tr_action = line.strip()[:100]
-                    break
-            if not tr_action and trader_plan:
-                tr_action = trader_plan.split("\n")[0].strip()[:100]
+                s = line.strip()
+                lower = s.lower()
+                if ("action" in lower or "direction" in lower or "方向" in s) and len(s) > 8:
+                    tr_action = s[:100]
+                elif ("entry" in lower or "入场" in s or "买入价" in s) and len(s) > 8:
+                    tr_entry = s[:80]
+                elif ("stop" in lower or "止损" in s) and len(s) > 8:
+                    tr_stop = s[:80]
+            if not tr_action:
+                rating = _extract_rating(trader_plan)
+                if rating:
+                    tr_action = f"Action: **{rating.upper()}**"
+                elif trader_plan:
+                    tr_action = _first_meaningful(trader_plan, 140)
+            extras = " | ".join(p for p in [tr_entry, tr_stop] if p)
+            if extras:
+                tr_action = f"{tr_action} ({extras})" if tr_action else extras
             chain_items.append(("Trader", "Research Manager's investment plan", tr_action or "Transaction plan generated"))
 
-            # Risk Debate
+            # ── 5. Risk Debate ──
             risk = state.get("risk_debate_state", {}) if isinstance(state, dict) else {}
             risk_rounds = risk.get("count", 0) if isinstance(risk, dict) else 0
-            chain_items.append(("Risk Debate", "Trader's proposal, Research Manager's plan", f"3-party risk analysis: {risk_rounds} rounds"))
+            agg_hist = risk.get("aggressive_history", "") if isinstance(risk, dict) else ""
+            con_hist = risk.get("conservative_history", "") if isinstance(risk, dict) else ""
+            neu_hist = risk.get("neutral_history", "") if isinstance(risk, dict) else ""
 
-            # Portfolio Manager — final
+            # Try to find the structured stance from each analyst
+            agg_stance = _extract_rating(agg_hist[-500:]) or ""
+            con_stance = _extract_rating(con_hist[-500:]) or ""
+            neu_stance = _extract_rating(neu_hist[-500:]) or ""
+
+            if risk_rounds > 0:
+                stances = []
+                for label, stance in [("Aggressive", agg_stance), ("Conservative", con_stance), ("Neutral", neu_stance)]:
+                    if stance:
+                        stances.append(f"{label}: {stance}")
+                if stances:
+                    risk_output = "; ".join(stances)
+                else:
+                    risk_output = f"3-party debate: {risk_rounds} rounds — see full report"
+            else:
+                risk_output = "Risk debate not started"
+            chain_items.append(("Risk Debate", "Trader's proposal, Research Manager's plan", risk_output))
+
+            # ── 6. Portfolio Manager ──
+            final_dec = state.get("final_trade_decision", "") if isinstance(state, dict) else ""
             pm_rating = signal.get("action", rating) if isinstance(signal, dict) else rating
             pm_conf = signal.get("confidence", 0) if isinstance(signal, dict) else 0
-            chain_items.append(("Portfolio Manager", "Risk debate, Trader's plan, Research Manager's plan", f"Final: **{pm_rating}** (confidence: {pm_conf:.0%})"))
+            # Try to extract executive summary from the structured output
+            pm_summary = ""
+            for line in final_dec.split("\n"):
+                s = line.strip().lstrip("#-*• ").strip()
+                if ("Executive Summary" in s or "执行摘要" in s or "executive_summary" in s.lower()) and len(s) > 20:
+                    pm_summary = s[:180]
+                    break
+            if not pm_summary:
+                pm_summary = _first_meaningful(final_dec, 160)
+            if pm_summary:
+                pm_output = f"**{pm_rating}** ({pm_conf:.0%} conf) — {pm_summary}"
+            else:
+                pm_output = f"**{pm_rating}** (confidence: {pm_conf:.0%})"
+            chain_items.append(("Portfolio Manager", "Risk debate, Trader's plan, Research Manager's plan", pm_output))
 
             chain_rows = "".join(
                 f'<tr><td style="padding:8px 12px;color:#374151;font-size:0.82rem;font-weight:600;border-bottom:1px solid #f1f5f9;white-space:nowrap;vertical-align:top;width:160px">{k}</td>'
-                f'<td style="padding:8px 12px;color:#9ca3af;font-size:0.75rem;border-bottom:1px solid #f1f5f9;white-space:nowrap;vertical-align:top;width:150px">{d}</td>'
+                f'<td style="padding:8px 12px;color:#9ca3af;font-size:0.75rem;border-bottom:1px solid #f1f5f9;white-space:nowrap;vertical-align:top;width:140px">{d}</td>'
                 f'<td style="padding:8px 12px;color:#4b5563;font-size:0.8rem;border-bottom:1px solid #f1f5f9;line-height:1.4">{v}</td></tr>'
                 for k, d, v in chain_items
             )
@@ -949,7 +1084,7 @@ def run():
                 f'<div class="dash-panel"><table style="width:100%;border-collapse:collapse">'
                 f'<tr><th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:0.7rem;text-transform:uppercase">Agent</th>'
                 f'<th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:0.7rem;text-transform:uppercase">Input</th>'
-                f'<th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:0.7rem;text-transform:uppercase">Decision / Output</th></tr>'
+                f'<th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:0.7rem;text-transform:uppercase">Decision / Conclusion</th></tr>'
                 f'{chain_rows}</table></div>',
                 unsafe_allow_html=True,
             )

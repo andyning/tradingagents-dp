@@ -309,11 +309,11 @@ def _detect_market(symbol: str) -> str:
 _SESSION_FILE = Path.home() / ".tradingagents" / "session_state.json"
 
 
-def _save_session(symbol: str, market: str, depth: str, data_window: int):
+def _save_session(symbol: str, depth: str, data_window: int):
     try:
         _SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
         _SESSION_FILE.write_text(json.dumps({
-            "symbol": symbol, "market": market, "depth": depth, "data_window": data_window,
+            "symbol": symbol, "depth": depth, "data_window": data_window,
         }, ensure_ascii=False), encoding="utf-8")
     except Exception:
         pass
@@ -444,7 +444,7 @@ def run():
         trade_date = st.date_input("date_input", pd.Timestamp.now(), label_visibility="collapsed").strftime("%Y-%m-%d")
 
         st.markdown('<div class="ig-label">Market</div>', unsafe_allow_html=True)
-        market = last.get("market") or _detect_market(symbol)
+        market = _detect_market(symbol)
         st.markdown(f'<div style="color:rgba(255,255,255,.45);font-size:0.78rem;padding:4px 0">{_market_label(market)}</div>', unsafe_allow_html=True)
 
         st.markdown('<div class="ig-label">Data Window</div>', unsafe_allow_html=True)
@@ -462,7 +462,7 @@ def run():
                              label_visibility="collapsed")
 
         # Persist current selection
-        _save_session(symbol, market, depth, data_window)
+        _save_session(symbol, depth, data_window)
         st.divider()
 
         # Data Sources Status — lazy, updates on use or manual refresh

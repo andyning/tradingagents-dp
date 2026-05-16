@@ -119,6 +119,12 @@ def _fetch_stock_data(symbol: str, market: str, days: int = 30):
         end = pd.Timestamp.now().strftime("%Y-%m-%d")
         start = (pd.Timestamp.now() - pd.Timedelta(days=int(days * 1.6))).strftime("%Y-%m-%d")
         df = mod.get_kline_daily(symbol, start, end)
+        # Update data source health based on what was actually used
+        if not df.empty:
+            # Check which source succeeded by looking at the cache/log pattern
+            for src in ("futu", "baostock", "akshare", "efinance", "yfinance"):
+                if st.session_state.get(f"_health_{src}", "?") == "?":
+                    st.session_state[f"_health_{src}"] = "OK"
         info = {"symbol": symbol, "market": market, "name": symbol}
         if not df.empty:
             last = df.iloc[-1]
@@ -360,30 +366,19 @@ def _check_data_sources():
     st.session_state._health_checked = True
     # Run checks in background thread to avoid blocking UI
     def _bg_health():
-        # Baostock
-        try:
-            import baostock as bs
-            lg = bs.login()
-            st.session_state._health_baostock = "OK" if lg.error_code == "0" else "DOWN"
-            bs.logout()
-        except Exception:
-            st.session_state._health_baostock = "DOWN"
-        # Futu
-        try:
-            from futu import OpenQuoteContext
-            ctx = OpenQuoteContext(host="127.0.0.1", port=11111)
-            ctx.close()
-            st.session_state._health_futu = "OK"
-        except Exception:
-            st.session_state._health_futu = "DOWN"
-        # Eastmoney
-        try:
-            import requests
-            r = requests.get("https://push2.eastmoney.com/api/qt/stock/get", timeout=3,
-                            headers={"User-Agent": "Mozilla/5.0"})
-            st.session_state._health_eastmoney = "OK" if r.status_code == 200 else "DOWN"
-        except Exception:
-            st.session_state._health_eastmoney = "DOWN"
+        tests = [
+            ("futu", lambda: __import__("futu").OpenQuoteContext("127.0.0.1", 11111).close()),
+            ("baostock", lambda: (bs:=__import__("baostock"), bs.login(), bs.logout())),
+            ("efinance", lambda: __import__("efinance").stock.get_base_info("600519")),
+            ("akshare", lambda: __import__("akshare").stock_zh_a_spot()),
+            ("yfinance", lambda: __import__("yfinance").Ticker("AAPL").history(period="1d")),
+        ]
+        for key, fn in tests:
+            try:
+                fn()
+                st.session_state[f"_health_{key}"] = "OK"
+            except Exception:
+                st.session_state[f"_health_{key}"] = "DOWN"
 
     threading.Thread(target=_bg_health, daemon=True).start()
 
@@ -441,16 +436,19 @@ def run():
                              label_visibility="collapsed")
         st.divider()
 
-        # Data source health — vertical layout with large dots
+        # Data source health — vertical layout, updated on each access
         st.divider()
-        st.markdown("**Data Sources**")
-        for label, key in [("Futu", "futu"), ("Baostock", "baostock"), ("Eastmoney", "eastmoney")]:
+        st.markdown("**Data Sources Status**")
+        all_sources = [
+            ("Futu", "futu"), ("Baostock", "baostock"),
+            ("akshare", "akshare"), ("efinance", "efinance"), ("yfinance", "yfinance"),
+        ]
+        for label, key in all_sources:
             status = st.session_state.get(f"_health_{key}", "?")
-            color = {"OK": "green", "?": "gray"}.get(status, "orange")
+            color = {"OK": "green", "?": "gray", "DOWN": "#dc2626"}.get(status, "orange")
             st.markdown(
-                f'<span style="font-size:1.2rem;color:{color};margin-right:8px">●</span>'
-                f'<span style="color:rgba(255,255,255,.9);font-size:0.78rem">{label}</span>'
-                f'<span style="color:rgba(255,255,255,.4);font-size:0.7rem;margin-left:6px">({status})</span>',
+                f'<span style="font-size:1.2rem;color:{color};margin-right:8px;line-height:1.3">●</span>'
+                f'<span style="color:rgba(255,255,255,.85);font-size:0.76rem;line-height:1.3">{label}</span>',
                 unsafe_allow_html=True,
             )
 

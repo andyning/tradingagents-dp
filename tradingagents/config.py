@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     """TradingAgents configuration."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(Path(__file__).parent.parent / ".env"),  # Absolute path — works in any CWD
         env_file_encoding="utf-8",
         extra="ignore",
     )

@@ -193,6 +193,7 @@ def get_news(symbol: str, limit: int = 20) -> pd.DataFrame:
     return with_fallback(
         symbol, "news",
         sources=[
+            ("akshare", lambda **kw: _akshare.news(**kw)),
             ("yfinance", lambda **kw: _yfinance.news(**kw)),
         ],
         params={"symbol": symbol, "limit": limit},

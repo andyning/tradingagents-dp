@@ -247,7 +247,45 @@ class AkshareSource(DataSource):
         return pd.DataFrame()
 
     def news(self, symbol: str, limit: int = 20) -> pd.DataFrame:
-        return pd.DataFrame()
+        """Fetch A-stock announcements via eastmoney public API."""
+        try:
+            import requests
+            url = (
+                f"https://np-anotice-stock.eastmoney.com/api/security/ann"
+                f"?page_size={min(limit, 20)}&page_index=1&stock_list={symbol}"
+            )
+            r = requests.get(url, headers={
+                "User-Agent": "Mozilla/5.0",
+                "Referer": "https://www.eastmoney.com",
+            }, timeout=5)
+            if r.status_code != 200:
+                return pd.DataFrame()
+            data = r.json()
+            items = data.get("data", {}).get("list", [])
+            if not items:
+                return pd.DataFrame()
+
+            rows = []
+            for item in items:
+                # Build title from available fields
+                cols = item.get("columns", {}) if isinstance(item.get("columns"), dict) else {}
+                title = (
+                    cols.get("SECURITY_NAME_ABBR", "")
+                    or item.get("notice_name", "")
+                    or item.get("title", "")
+                    or f"{item.get('art_code', '')} {item.get('notice_date', '')}"
+                )
+                if title:
+                    rows.append({
+                        "title": str(title).strip(),
+                        "source": "eastmoney",
+                        "url": "",
+                        "publish_time": str(item.get("notice_date", "")),
+                        "summary": str(item.get("art_code", "")),
+                    })
+            return pd.DataFrame(rows)
+        except Exception:
+            return pd.DataFrame()
 
     def concept_blocks(self) -> pd.DataFrame:
         return pd.DataFrame()

@@ -39,7 +39,7 @@ st.markdown("""<style>
     .mc .mcl { font-size: 0.68rem; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; font-weight: 500; }
     .mc .mcv { font-size: 1.25rem; font-weight: 700; color: #111827; }
     .mc .mcs { font-size: 0.78rem; margin-top: 2px; }
-    .up { color: #dc2626; } .down { color: #059669; }
+    .up { color: #dc2626 !important; } .down { color: #059669 !important; }
     .badge { display: inline-block; padding: 5px 20px; border-radius: 6px; font-weight: 700; font-size: .95rem; letter-spacing: .03em; }
     .badge-BUY { background: #d1fae5; color: #065f46; border: 1px solid #10b981; }
     .badge-OVERWEIGHT { background: #dbeafe; color: #1e40af; border: 1px solid #3b82f6; }

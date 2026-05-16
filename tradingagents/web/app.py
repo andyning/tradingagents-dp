@@ -176,7 +176,9 @@ def _enrich_stock_info(info: dict, symbol: str, market: str) -> dict:
                 "amplitude": "amplitude",               # 振幅
                 "turnover": "amount",                    # 成交额
                 "volume_ratio": "vol_ratio",            # 量比
-                "pe_ratio": "pe_forward",               # PE-动 (forward PE fallback)
+                "pe_ratio": "pe_forward",               # PE-动
+                "pe_ttm_ratio": "pe",                   # PE-TTM
+                "pb_ratio": "pb",                       # 市净率
             }
             for src, dst in field_map.items():
                 try:

@@ -5,6 +5,7 @@ Clean light theme, real-time step progress, token tracking, dashboard overview.
 
 from __future__ import annotations
 
+import json
 import threading
 import time
 import warnings
@@ -303,6 +304,29 @@ def _detect_market(symbol: str) -> str:
     return "a_stock"
 
 
+# ── Session persistence ────────────────────────────────────────────────
+_SESSION_FILE = Path.home() / ".tradingagents" / "session_state.json"
+
+
+def _save_session(symbol: str, market: str, depth: str, data_window: int):
+    try:
+        _SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _SESSION_FILE.write_text(json.dumps({
+            "symbol": symbol, "market": market, "depth": depth, "data_window": data_window,
+        }, ensure_ascii=False), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def _load_session() -> dict:
+    try:
+        if _SESSION_FILE.exists():
+            return json.loads(_SESSION_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return {}
+
+
 def _market_label(m: str) -> str:
     return {"a_stock": "A-Shares", "hk_stock": "Hong Kong", "us_stock": "US Stocks"}.get(m, m)
 
@@ -454,25 +478,35 @@ def run():
         </style>
         """, unsafe_allow_html=True)
 
+        # Load last session
+        last = _load_session()
+
         st.markdown('<div class="ig-label" style="margin-top:0">Stock Symbol</div>', unsafe_allow_html=True)
-        symbol = st.text_input("symbol_input", "688775", placeholder="输入股票代码", label_visibility="collapsed")
+        symbol = st.text_input("symbol_input", last.get("symbol", "688775"), placeholder="输入股票代码", label_visibility="collapsed")
 
         st.markdown('<div class="ig-label">Analysis Date</div>', unsafe_allow_html=True)
         trade_date = st.date_input("date_input", pd.Timestamp.now(), label_visibility="collapsed").strftime("%Y-%m-%d")
 
         st.markdown('<div class="ig-label">Market</div>', unsafe_allow_html=True)
-        market = _detect_market(symbol)
+        market = last.get("market") or _detect_market(symbol)
         st.markdown(f'<div style="color:rgba(255,255,255,.45);font-size:0.78rem;padding:4px 0">{_market_label(market)}</div>', unsafe_allow_html=True)
 
         st.markdown('<div class="ig-label">Data Window</div>', unsafe_allow_html=True)
-        data_window = st.selectbox("window_select", [30, 60, 120, 250], index=0,
+        dw_default = last.get("data_window", 30)
+        dw_index = [30, 60, 120, 250].index(dw_default) if dw_default in [30, 60, 120, 250] else 0
+        data_window = st.selectbox("window_select", [30, 60, 120, 250], index=dw_index,
                                    format_func=lambda x: f"{x} trading days ({x//21}月)",
                                    label_visibility="collapsed")
 
         st.markdown('<div class="ig-label">Analysis Depth</div>', unsafe_allow_html=True)
-        depth = st.selectbox("depth_select", ["light", "medium", "deep"], index=1,
+        depth_default = last.get("depth", "medium")
+        depth_index = ["light", "medium", "deep"].index(depth_default) if depth_default in ["light", "medium", "deep"] else 1
+        depth = st.selectbox("depth_select", ["light", "medium", "deep"], index=depth_index,
                              format_func=lambda x: {"light": "Light (5 steps, ~2 min)", "medium": "Medium (13 steps, ~8 min)", "deep": "Deep (16 steps, ~12 min)"}[x],
                              label_visibility="collapsed")
+
+        # Persist current selection
+        _save_session(symbol, market, depth, data_window)
         st.divider()
 
         # Data Sources Status — background thread updates; tight spacing

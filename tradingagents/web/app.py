@@ -83,7 +83,7 @@ st.markdown("""<style>
     .stButton button { border-radius: 6px !important; font-size: 0.78rem !important; padding: 4px 12px !important;
         color: #fff !important; border: 1px solid #0D3869 !important; background: #0D3869 !important; font-weight: 500 !important; }
     .stButton button:hover { background: #0a2d55 !important; border-color: #0a2d55 !important; }
-    header, footer, #MainMenu, [data-testid="stToolbar"], [data-testid="stDecoration"] { display: none !important; }
+    header, footer, #MainMenu, [data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecoration"], [data-testid="stStatusWidget"] { display: none !important; }
 </style>""", unsafe_allow_html=True)
 
 # ── Pipeline runner (background thread) ─────────────────────────────────

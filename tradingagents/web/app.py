@@ -127,23 +127,87 @@ def _fetch_stock_data(symbol: str, market: str, days: int = 30):
                     info[k] = float(pd.to_numeric(last[k], errors="coerce"))
                 except Exception:
                     info[k] = None
-        # Get display name: only for A-stock/HK via efinance; US stocks use ticker as name
-        if market in ("a_stock", "hk_stock"):
-            try:
-                from tradingagents.data.sources.efinance import EfinanceSource
-                q = EfinanceSource().quote(symbol)
-                if not q.empty:
-                    for c in q.columns:
-                        if "名称" in str(c) or "name" in str(c).lower():
-                            name_val = str(q.iloc[0][c])
-                            # Validate: name should not be gibberish or a different ticker
-                            if name_val and name_val != symbol and len(name_val) < 20:
-                                info["name"] = name_val; break
-            except Exception:
-                pass
+        # Get display name — multi-source fallback per market
+        info["name"] = _lookup_stock_name(symbol, market)
         return info, df
     except Exception:
         return {"symbol": symbol, "market": market, "name": symbol}, pd.DataFrame()
+
+
+def _lookup_stock_name(symbol: str, market: str) -> str:
+    """Look up company name from available data sources."""
+    s = symbol.strip().upper()
+    # A-stock: Baostock → Futu
+    if market == "a_stock":
+        try:
+            import baostock as bs
+            prefix = "sh." if s.startswith("6") else "sz."
+            bs.login()
+            rs = bs.query_stock_basic(code=f"{prefix}{s}")
+            while rs.next():
+                row = rs.get_row_data()
+                if len(row) > 1 and row[1] and row[1] != s:
+                    bs.logout()
+                    return str(row[1])
+            bs.logout()
+        except Exception:
+            pass
+        try:
+            from futu import OpenQuoteContext
+            ctx = OpenQuoteContext(host="127.0.0.1", port=11111)
+            ret, df = ctx.get_market_snapshot([f"{'SH' if s.startswith('6') else 'SZ'}.{s}"])
+            ctx.close()
+            if ret == 0 and df is not None and not df.empty:
+                name = df.iloc[0].get("name", "")
+                if name and name != s:
+                    return str(name)
+        except Exception:
+            pass
+    # HK stock: Futu → yfinance
+    elif market == "hk_stock":
+        try:
+            from futu import OpenQuoteContext
+            ctx = OpenQuoteContext(host="127.0.0.1", port=11111)
+            ret, df = ctx.get_market_snapshot([f"HK.{s:0>5}"])
+            ctx.close()
+            if ret == 0 and df is not None and not df.empty:
+                name = df.iloc[0].get("name", "")
+                if name and name != s:
+                    return str(name)
+        except Exception:
+            pass
+        try:
+            import yfinance as yf
+            t = yf.Ticker(f"{s:0>4}.HK")
+            info = t.info
+            name = info.get("longName") or info.get("shortName") or ""
+            if name and name != s:
+                return str(name)
+        except Exception:
+            pass
+    # US stock: yfinance → Futu
+    elif market == "us_stock":
+        try:
+            import yfinance as yf
+            t = yf.Ticker(s)
+            info = t.info
+            name = info.get("longName") or info.get("shortName") or ""
+            if name and name != s and len(name) < 50:
+                return str(name)
+        except Exception:
+            pass
+        try:
+            from futu import OpenQuoteContext
+            ctx = OpenQuoteContext(host="127.0.0.1", port=11111)
+            ret, df = ctx.get_market_snapshot([f"US.{s}"])
+            ctx.close()
+            if ret == 0 and df is not None and not df.empty:
+                name = df.iloc[0].get("name", "")
+                if name and name != s:
+                    return str(name)
+        except Exception:
+            pass
+    return s
 
 # ── Cache helpers ───────────────────────────────────────────────────────
 def _cache_path(symbol: str, depth: str) -> Path:

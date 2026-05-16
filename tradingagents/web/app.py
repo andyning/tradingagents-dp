@@ -119,12 +119,6 @@ def _fetch_stock_data(symbol: str, market: str, days: int = 30):
         end = pd.Timestamp.now().strftime("%Y-%m-%d")
         start = (pd.Timestamp.now() - pd.Timedelta(days=int(days * 1.6))).strftime("%Y-%m-%d")
         df = mod.get_kline_daily(symbol, start, end)
-        # Update data source health based on what was actually used
-        if not df.empty:
-            # Check which source succeeded by looking at the cache/log pattern
-            for src in ("futu", "baostock", "akshare", "efinance", "yfinance"):
-                if st.session_state.get(f"_health_{src}", "?") == "?":
-                    st.session_state[f"_health_{src}"] = "OK"
         info = {"symbol": symbol, "market": market, "name": symbol}
         if not df.empty:
             last = df.iloc[-1]
@@ -366,19 +360,39 @@ def _check_data_sources():
     st.session_state._health_checked = True
     # Run checks in background thread to avoid blocking UI
     def _bg_health():
-        tests = [
-            ("futu", lambda: __import__("futu").OpenQuoteContext("127.0.0.1", 11111).close()),
-            ("baostock", lambda: (bs:=__import__("baostock"), bs.login(), bs.logout())),
-            ("efinance", lambda: __import__("efinance").stock.get_base_info("600519")),
-            ("akshare", lambda: __import__("akshare").stock_zh_a_spot()),
-            ("yfinance", lambda: __import__("yfinance").Ticker("AAPL").history(period="1d")),
-        ]
-        for key, fn in tests:
-            try:
-                fn()
-                st.session_state[f"_health_{key}"] = "OK"
-            except Exception:
-                st.session_state[f"_health_{key}"] = "DOWN"
+        # Test each source independently
+        try:
+            from futu import OpenQuoteContext
+            ctx = OpenQuoteContext(host="127.0.0.1", port=11111)
+            ctx.close()
+            st.session_state._health_futu = "OK"
+        except Exception:
+            st.session_state._health_futu = "DOWN"
+        try:
+            import baostock as bs
+            lg = bs.login()
+            st.session_state._health_baostock = "OK" if lg.error_code == "0" else "DOWN"
+            bs.logout()
+        except Exception:
+            st.session_state._health_baostock = "DOWN"
+        try:
+            import efinance as ef
+            ef.stock.get_base_info("600519")
+            st.session_state._health_efinance = "OK"
+        except Exception:
+            st.session_state._health_efinance = "DOWN"
+        try:
+            import akshare as ak
+            ak.stock_zh_a_spot()
+            st.session_state._health_akshare = "OK"
+        except Exception:
+            st.session_state._health_akshare = "DOWN"
+        try:
+            import yfinance as yf
+            yf.Ticker("AAPL").history(period="1d")
+            st.session_state._health_yfinance = "OK"
+        except Exception:
+            st.session_state._health_yfinance = "DOWN"
 
     threading.Thread(target=_bg_health, daemon=True).start()
 
@@ -436,7 +450,7 @@ def run():
                              label_visibility="collapsed")
         st.divider()
 
-        # Data source health — vertical layout, updated on each access
+        # Data source health — compact, green=OK / red=DOWN / gray=?
         st.divider()
         st.markdown("**Data Sources Status**")
         all_sources = [
@@ -445,10 +459,12 @@ def run():
         ]
         for label, key in all_sources:
             status = st.session_state.get(f"_health_{key}", "?")
-            color = {"OK": "green", "?": "gray", "DOWN": "#dc2626"}.get(status, "orange")
+            color = {"OK": "#059669", "?": "#6b7280", "DOWN": "#dc2626"}.get(status, "#dc2626")
             st.markdown(
-                f'<span style="font-size:1.2rem;color:{color};margin-right:8px;line-height:1.3">●</span>'
-                f'<span style="color:rgba(255,255,255,.85);font-size:0.76rem;line-height:1.3">{label}</span>',
+                f'<span style="display:flex;align-items:center;gap:8px;line-height:1.15;padding:1px 0">'
+                f'<span style="font-size:1.3rem;color:{color}">●</span>'
+                f'<span style="color:rgba(255,255,255,.85);font-size:0.76rem">{label}</span>'
+                f'</span>',
                 unsafe_allow_html=True,
             )
 

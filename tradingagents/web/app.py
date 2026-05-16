@@ -507,22 +507,15 @@ def run():
         c2.markdown(f'<div class="tbox"><div class="tv">{p_now.tokens_out:,}</div><div class="tl">Output</div></div>', unsafe_allow_html=True)
         c3.markdown(f'<div class="tbox"><div class="tv">{p_now.tokens_total:,}</div><div class="tl">Total</div></div>', unsafe_allow_html=True)
 
-        # Report export (always visible when analysis result exists)
-        export_state = None
-        if st.session_state._done:
-            p_export = get_progress()
-            export_state = p_export.step_results.get("__state__", {})
-        if not export_state and st.session_state._cached_result:
-            export_state = st.session_state._cached_result
-        if isinstance(export_state, dict) and export_state:
-            report_md = _build_export_report(export_state, symbol, trade_date, market, depth)
-            st.download_button(
-                label="Export Report (Markdown)",
-                data=report_md,
-                file_name=f"{symbol}_{trade_date}_{depth}.md",
-                mime="text/markdown",
-                use_container_width=True,
-            )
+        # Report export — always visible, loads from cache if available
+        export_data = _load_cached_result(symbol, depth) or {}
+        st.download_button(
+            label="Export Report (Markdown)",
+            data=_build_export_report(export_data, symbol, trade_date, market, depth),
+            file_name=f"{symbol}_{trade_date}_{depth}.md",
+            mime="text/markdown",
+            use_container_width=True,
+        )
 
     # ═══ CACHE CHECK ═══
     # When user changes symbol/depth, auto-load cached result if exists

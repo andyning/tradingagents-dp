@@ -113,9 +113,68 @@ def _run_pipeline(symbol: str, trade_date: str, market: str, depth: str, data_wi
         finish(error=str(exc))
 
 # ── Stock info + K-line (single fetch, cached) ────────────────────────
+def _probe_data_sources():
+    """Lightweight probe of each data source, updates session_state health."""
+    probes = {
+        "futu": lambda: _probe_futu(),
+        "ib": lambda: _probe_ib(),
+        "baostock": lambda: _probe_baostock(),
+        "efinance": lambda: _probe_efinance(),
+    }
+    for key, probe_fn in probes.items():
+        if st.session_state.get(f"_health_{key}", "?") in ("?", "DOWN"):
+            try:
+                ok = probe_fn()
+                st.session_state[f"_health_{key}"] = "OK" if ok else "DOWN"
+            except Exception:
+                st.session_state[f"_health_{key}"] = "DOWN"
+
+
+def _probe_futu():
+    try:
+        from tradingagents.data.sources.futu import _get_shared_futu
+        ctx = _get_shared_futu()
+        return ctx is not None
+    except Exception:
+        return False
+
+
+def _probe_ib():
+    try:
+        import importlib, sys
+        if "tradingagents.data.sources.ib" not in sys.modules:
+            importlib.import_module("tradingagents.data.sources.ib")
+        from tradingagents.data.sources.ib import _ensure_worker
+        _ensure_worker()
+        return True
+    except Exception:
+        return False
+
+
+def _probe_baostock():
+    try:
+        import baostock as bs
+        lg = bs.login()
+        if lg.error_code == "0":
+            bs.logout()
+            return True
+        return False
+    except Exception:
+        return False
+
+
+def _probe_efinance():
+    try:
+        import efinance as ef
+        return hasattr(ef, "stock")
+    except Exception:
+        return False
+
+
 @st.cache_data(show_spinner=False, ttl=1800)
 def _fetch_stock_data(symbol: str, market: str, days: int = 30):
     """Return (info_dict, kline_dataframe). Single network call for both."""
+    _probe_data_sources()  # Update source health on every fetch
     from tradingagents.data import a_stock, hk_stock, us_stock
     if market == "hk_stock":
         mod = hk_stock
@@ -131,6 +190,8 @@ def _fetch_stock_data(symbol: str, market: str, days: int = 30):
         if not df.empty:
             if market == "a_stock":
                 st.session_state._health_baostock = "OK"
+            elif market in ("us_stock", "hk_stock"):
+                st.session_state._health_ib = "OK"
             st.session_state._health_futu = "OK"
             st.session_state._health_efinance = "OK"
         info = {"symbol": symbol, "market": market, "name": symbol}

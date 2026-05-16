@@ -36,12 +36,15 @@ def _get_shared_ib(host: str = _DEFAULT_HOST, port: int = _DEFAULT_PORT):
     """Get or create a SINGLE persistent IB connection. Thread-safe.
     Auto-reconnects if the connection was dropped."""
     global _shared_ib, _shared_refcount
-    # Ensure event loop exists BEFORE any ib_insync call
+    # Ensure event loop exists BEFORE any ib_insync call (required in Streamlit threads)
     import asyncio
     try:
-        asyncio.get_event_loop()
-    except RuntimeError:
-        asyncio.set_event_loop(asyncio.new_event_loop())
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            raise RuntimeError
+    except (RuntimeError, AttributeError):
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
     with _shared_lock:
         # Check if existing connection is still alive
         if _shared_ib is not None:

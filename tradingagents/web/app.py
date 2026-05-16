@@ -169,12 +169,14 @@ def _enrich_stock_info(info: dict, symbol: str, market: str) -> dict:
             row = df.iloc[0]
             # Map Futu fields to our info dict
             field_map = {
-                "market_cap": "market_cap",        # 总市值
-                "circular_cap": "circular_cap",    # 流通市值
-                "total_shares": "total_shares",    # 总股本
-                "float_shares": "float_shares",    # 流通股
-                "amplitude": "amplitude",           # 振幅
-                "pe_forward": "pe_forward",         # PE-动 (forward PE)
+                "total_market_val": "market_cap",      # 总市值
+                "circular_market_val": "circular_cap", # 流通市值
+                "issued_shares": "total_shares",       # 总股本
+                "outstanding_shares": "float_shares",  # 流通股
+                "amplitude": "amplitude",               # 振幅
+                "turnover": "amount",                    # 成交额
+                "volume_ratio": "vol_ratio",            # 量比
+                "pe_ratio": "pe_forward",               # PE-动 (forward PE fallback)
             }
             for src, dst in field_map.items():
                 try:
@@ -185,7 +187,7 @@ def _enrich_stock_info(info: dict, symbol: str, market: str) -> dict:
                     pass
             # Earnings status
             try:
-                eps = row.get("eps_ttm") or row.get("basic_eps")
+                eps = row.get("earning_per_share") or row.get("net_profit")
                 if eps is not None:
                     eps_val = float(eps)
                     info["is_profitable"] = "盈利" if eps_val > 0 else "亏损"

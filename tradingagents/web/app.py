@@ -67,11 +67,13 @@ st.markdown("""<style>
     }
     section[data-testid="stSidebar"] input[type="text"]::placeholder { color: #9ca3af !important; }
     section[data-testid="stSidebar"] [data-baseweb="select"] * { color: #111827 !important; }
-    /* Run button: Prussian blue */
-    section[data-testid="stSidebar"] button[kind="primary"] {
+    /* Run & Clear buttons: Prussian blue */
+    section[data-testid="stSidebar"] button[kind="primary"],
+    section[data-testid="stSidebar"] button[kind="secondary"] {
         background: #0D3869 !important; border-color: #0D3869 !important; color: #fff !important;
     }
-    section[data-testid="stSidebar"] button[kind="primary"]:hover {
+    section[data-testid="stSidebar"] button[kind="primary"]:hover,
+    section[data-testid="stSidebar"] button[kind="secondary"]:hover {
         background: #0a2d55 !important; border-color: #0a2d55 !important;
     }
     header, footer, #MainMenu { visibility: hidden; }
@@ -364,6 +366,16 @@ def run():
             t = threading.Thread(target=_run_pipeline, args=(symbol, trade_date, market, depth, data_window), daemon=True)
             t.start()
             st.session_state._thread = t
+            st.rerun()
+
+        # Clear Report — remove cached analysis for current symbol+depth
+        if st.button("Clear Report", type="secondary", use_container_width=True):
+            cache_path = _cache_path(symbol, depth)
+            if cache_path.exists():
+                cache_path.unlink()
+            st.session_state._done = False
+            st.session_state._cached_result = None
+            st.session_state._running = False
             st.rerun()
 
         # Report export (after analysis done)

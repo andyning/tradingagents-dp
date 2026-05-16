@@ -587,6 +587,9 @@ def run():
     with rcol2:
         if st.button("Refresh", key="refresh_data_btn", help="Refresh stock data & K-line chart"):
             _fetch_stock_data.clear()
+            # Reset data source health for fresh detection
+            for k in ("futu", "ib", "baostock", "akshare", "efinance", "yfinance"):
+                st.session_state.pop(f"_health_{k}", None)
             st.rerun()
 
     def _mc(label, value, fmt=None, color_class=""):

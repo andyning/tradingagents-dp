@@ -40,7 +40,9 @@ def _ib_contract(symbol: str, market: str):
             return Stock(s, "SEHKNTL", "CNY")  # Shanghai-HK Northbound
         return Stock(s, "SEHKNT", "CNY")        # Shenzhen-HK Northbound
     elif market == "hk_stock":
-        return Stock(s, "SEHK", "HKD")
+        # IB uses unpadded codes for HK: "700" not "00700"
+        code = s.lstrip("0") or "0"
+        return Stock(code, "SEHK", "HKD")
     elif market == "us_stock":
         return Stock(s, "SMART", "USD")
     return None

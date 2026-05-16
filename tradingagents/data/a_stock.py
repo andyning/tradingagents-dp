@@ -40,7 +40,6 @@ def get_kline_daily(
         symbol, "kline_daily",
         sources=[
             ("futu", lambda **kw: _futu.kline_daily(**kw)),
-            ("ib", lambda **kw: _ib.kline_daily(**kw)),
             ("baostock", lambda **kw: _baostock.kline_daily(**kw)),
             ("efinance", lambda **kw: _efinance.kline_daily(**kw)),
             ("yfinance", lambda **kw: _yfinance.kline_daily(**kw)),

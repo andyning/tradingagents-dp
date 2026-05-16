@@ -378,29 +378,27 @@ def run():
             st.session_state._running = False
             st.rerun()
 
-        # Report export (after analysis done)
-        if st.session_state._done and not st.session_state._running:
-            p_done = get_progress()
-            state_done = p_done.step_results.get("__state__", {})
-            if isinstance(state_done, dict) and state_done:
-                report_md = _build_export_report(state_done, symbol, trade_date, market, depth)
-                st.download_button(
-                    label="Export Report (Markdown)",
-                    data=report_md,
-                    file_name=f"{symbol}_{trade_date}_{depth}.md",
-                    mime="text/markdown",
-                    use_container_width=True,
-                )
-
-        # Token display
+        # Token display (always visible)
+        st.divider()
         p_now = get_progress()
-        if st.session_state._running or st.session_state._done:
-            st.divider()
-            st.markdown("**Token Usage**")
-            c1, c2, c3 = st.columns(3)
-            c1.markdown(f'<div class="tbox"><div class="tv">{p_now.tokens_in:,}</div><div class="tl">Input</div></div>', unsafe_allow_html=True)
-            c2.markdown(f'<div class="tbox"><div class="tv">{p_now.tokens_out:,}</div><div class="tl">Output</div></div>', unsafe_allow_html=True)
-            c3.markdown(f'<div class="tbox"><div class="tv">{p_now.tokens_total:,}</div><div class="tl">Total</div></div>', unsafe_allow_html=True)
+        st.markdown("**Token Usage**")
+        c1, c2, c3 = st.columns(3)
+        c1.markdown(f'<div class="tbox"><div class="tv">{p_now.tokens_in:,}</div><div class="tl">Input</div></div>', unsafe_allow_html=True)
+        c2.markdown(f'<div class="tbox"><div class="tv">{p_now.tokens_out:,}</div><div class="tl">Output</div></div>', unsafe_allow_html=True)
+        c3.markdown(f'<div class="tbox"><div class="tv">{p_now.tokens_total:,}</div><div class="tl">Total</div></div>', unsafe_allow_html=True)
+
+        # Report export (always visible when analysis done)
+        p_done = get_progress()
+        state_done = p_done.step_results.get("__state__", {})
+        if isinstance(state_done, dict) and state_done:
+            report_md = _build_export_report(state_done, symbol, trade_date, market, depth)
+            st.download_button(
+                label="Export Report (Markdown)",
+                data=report_md,
+                file_name=f"{symbol}_{trade_date}_{depth}.md",
+                mime="text/markdown",
+                use_container_width=True,
+            )
 
     # ═══ CACHE CHECK ═══
     # When user changes symbol/depth, auto-load cached result if exists
@@ -579,82 +577,81 @@ def run():
         # ── Tab 0: Dashboard ──
         with tabs[0]:
             signal = state.get("structured_decision", {}) if isinstance(state, dict) else {}
+            debate = state.get("investment_debate_state", {}) if isinstance(state, dict) else {}
+            rounds = debate.get("count", 0) if isinstance(debate, dict) else 0
+            qg = state.get("data_quality_summary", "")
+            n_ok = qg.count(": A") + qg.count(": B") if qg else 0
+
+            # KPI cards row
             if isinstance(signal, dict) and signal:
-                dc1, dc2, dc3, dc4 = st.columns(4)
+                dc1, dc2, dc3, dc4, dc5 = st.columns(5)
                 with dc1:
                     st.markdown(f'<div class="mc"><div class="mcl">Final Rating</div><div class="mcv">{signal.get("action", rating)}</div></div>', unsafe_allow_html=True)
                 with dc2:
                     conf = signal.get("confidence", 0)
-                    st.markdown(f'<div class="mc"><div class="mcl">Confidence</div><div class="mcv">{conf:.0%}</div><div class="mcs">Risk: {signal.get("risk_score", 0):.0%}</div></div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="mc"><div class="mcl">Confidence</div><div class="mcv">{conf:.0%}</div><div class="mcs">Risk Score: {signal.get("risk_score", 0):.0%}</div></div>', unsafe_allow_html=True)
                 with dc3:
                     tp = signal.get("target_price")
-                    tp_str = f"¥{tp:.2f}" if tp else "—"
+                    tp_str = f"{'¥' if market == 'a_stock' else '$'}{tp:.2f}" if tp else "—"
                     st.markdown(f'<div class="mc"><div class="mcl">Target Price</div><div class="mcv">{tp_str}</div></div>', unsafe_allow_html=True)
                 with dc4:
-                    st.markdown(f'<div class="mc"><div class="mcl">Tokens Used</div><div class="mcv">{p.tokens_total:,}</div><div class="mcs">in {p.tokens_in:,} · out {p.tokens_out:,}</div></div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="mc"><div class="mcl">Data Quality</div><div class="mcv">{n_ok}/7</div><div class="mcs">A/B grade reports</div></div>', unsafe_allow_html=True)
+                with dc5:
+                    st.markdown(f'<div class="mc"><div class="mcl">Debate Rounds</div><div class="mcv">{rounds}</div><div class="mcs">Bull vs Bear</div></div>', unsafe_allow_html=True)
             else:
                 dc1, dc2, dc3, dc4 = st.columns(4)
                 with dc1:
                     st.markdown(f'<div class="mc"><div class="mcl">Final Rating</div><div class="mcv">{rating}</div></div>', unsafe_allow_html=True)
                 with dc2:
-                    qg = state.get("data_quality_summary", "")
-                    n_ok = qg.count(": A") + qg.count(": B") if qg else 0
                     st.markdown(f'<div class="mc"><div class="mcl">Data Quality</div><div class="mcv">{n_ok}/7</div><div class="mcs">A/B grade reports</div></div>', unsafe_allow_html=True)
                 with dc3:
-                    st.markdown(f'<div class="mc"><div class="mcl">Tokens Used</div><div class="mcv">{p.tokens_total:,}</div><div class="mcs">in {p.tokens_in:,} · out {p.tokens_out:,}</div></div>', unsafe_allow_html=True)
-                with dc4:
-                    debate = state.get("investment_debate_state", {}) if isinstance(state, dict) else {}
-                    rounds = debate.get("count", 0) if isinstance(debate, dict) else 0
                     st.markdown(f'<div class="mc"><div class="mcl">Debate Rounds</div><div class="mcv">{rounds}</div><div class="mcs">Bull vs Bear</div></div>', unsafe_allow_html=True)
+                with dc4:
+                    consensus = "—"
+                    st.markdown(f'<div class="mc"><div class="mcl">Analyst Consensus</div><div class="mcv">{consensus}</div></div>', unsafe_allow_html=True)
 
             st.markdown('<div style="margin-top:12px"></div>', unsafe_allow_html=True)
-            with st.container():
-                # Parse decision into clean table — handle both JSON and markdown
-                import json as _json
-                fields = {}
-                # Format 1: JSON fallback (structured output failed)
-                if decision.strip().startswith("{"):
-                    try:
-                        data = _json.loads(decision.strip().replace("'", '"'))
-                        key_map = {
-                            "rating": "Rating", "confidence": "Confidence",
-                            "reasoning": "Reasoning", "risk_assessment": "Risk Assessment",
-                            "position_advice": "Position Advice", "time_horizon": "Time Horizon",
-                        }
-                        for k, v in data.items():
-                            if k.lower() == "rating":
-                                continue  # Skip, already in metric cards
-                            label = key_map.get(k, k.replace("_", " ").title())
-                            fields[label] = str(v) if not isinstance(v, str) else v
-                    except Exception:
-                        pass
-                # Format 2: Markdown **Key**: value
-                if not fields:
-                    for line in decision.split("\n"):
-                        line = line.strip()
-                        if line.startswith("**") and "**:" in line:
-                            parts = line.split("**: ", 1)
-                            key = parts[0].replace("**", "").strip()
-                            val = parts[1].strip()
-                            if key.lower() != "rating" and val:
-                                fields[key] = val
-                if fields:
+
+            # ── Decision Summary — built from SignalProcessor structured data ──
+            if isinstance(signal, dict) and signal:
+                dec_fields = []
+                if signal.get("reasoning"):
+                    dec_fields.append(("Reasoning", signal["reasoning"]))
+                # Also extract from decision markdown for richer detail
+                for line in decision.split("\n"):
+                    line = line.strip()
+                    if line.startswith("**") and "**:" in line:
+                        parts = line.split("**: ", 1)
+                        key = parts[0].replace("**", "").strip()
+                        val = parts[1].strip()
+                        if key.lower() not in ("rating", "confidence", "risk_score") and val:
+                            dec_fields.append((key, val))
+                if dec_fields:
                     rows = "".join(
                         f'<tr><td style="padding:10px 16px;color:#6b7280;font-weight:600;white-space:nowrap;border-bottom:1px solid #f1f5f9;vertical-align:top;width:160px">{k}</td>'
                         f'<td style="padding:10px 16px;color:#111827;border-bottom:1px solid #f1f5f9;font-size:0.88rem;line-height:1.55">{v}</td></tr>'
-                        for k, v in fields.items()
+                        for k, v in dec_fields
                     )
-                    st.markdown(f'<div class="dash-panel"><h4>Decision Summary</h4><table style="width:100%;border-collapse:collapse">{rows}</table></div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="dash-panel"><h4>Investment Director — Decision Summary</h4><table style="width:100%;border-collapse:collapse">{rows}</table></div>', unsafe_allow_html=True)
                 else:
-                    st.markdown(f'<div class="dash-panel"><h4>Decision Summary</h4><p style="color:#374151;font-size:0.9rem">{(decision or "")[:500]}</p></div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="dash-panel"><h4>Investment Director — Decision Summary</h4><p style="color:#374151;font-size:0.9rem">{(decision or "")[:500]}</p></div>', unsafe_allow_html=True)
+            else:
+                # Fallback for cached results without structured decision
+                clean = " ".join(l.strip() for l in (decision or "").split("\n") if l.strip() and not l.strip().startswith("#") and not l.strip().startswith("**Rating"))
+                st.markdown(f'<div class="dash-panel"><h4>Investment Director — Decision Summary</h4><p style="color:#374151;font-size:0.9rem">{clean[:500] if clean else "No decision data available."}</p></div>', unsafe_allow_html=True)
 
-
-            # ── Analyst Vote Table ──
-            st.markdown("#### Analyst Voting Summary")
+            # ── 7 Analyst Votes ──
+            st.markdown("#### 7-Analyst Voting Summary")
             import re as _re
+            analyst_labels = [
+                ("Market/Tech 技术分析", "market_report"), ("Sentiment 舆情分析", "sentiment_report"),
+                ("News 新闻分析", "news_report"), ("Fundamentals 基本面分析", "fundamentals_report"),
+                ("Policy 政策分析", "policy_report"), ("Hot Money 资金分析", "hot_money_report"),
+                ("Lockup 解禁分析", "lockup_report"),
+            ]
             votes = []
             dir_colors = {"看多": "#059669", "看空": "#dc2626", "中性": "#6b7280", "放弃": "#9ca3af"}
-            for label, key in report_keys:
+            for label, key in analyst_labels:
                 content = state.get(key, "") if isinstance(state, dict) else ""
                 direction = "—"
                 kpi = "—"
@@ -667,7 +664,6 @@ def run():
                         kpi = m2.group(1).strip()[:120]
                 votes.append((label, direction, kpi))
 
-            # Build vote table
             rows_html = ""
             bull = sum(1 for _, d, _ in votes if d == "看多")
             bear = sum(1 for _, d, _ in votes if d == "看空")
@@ -682,10 +678,10 @@ def run():
                     f'<td style="padding:8px 12px;color:#6b7280;font-size:0.82rem;border-bottom:1px solid #f1f5f9">{kpi_display}</td>'
                     f'</tr>'
                 )
-            tally = f"看多 {bull} · 看空 {bear} · 中性/弃权 {neutral}"
+            tally = f"Bull {bull} · Bear {bear} · Neutral/Abstain {neutral}"
             tally_color = "#059669" if bull > bear else "#dc2626" if bear > bull else "#6b7280"
             st.markdown(
-                f'<div class="dash-panel"><h4>Analyst Votes <span style="font-weight:400;color:{tally_color};font-size:0.85rem">({tally})</span></h4>'
+                f'<div class="dash-panel"><h4>7-Analyst Votes <span style="font-weight:400;color:{tally_color};font-size:0.85rem">({tally})</span></h4>'
                 f'<table style="width:100%;border-collapse:collapse">'
                 f'<tr><th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:0.7rem;text-transform:uppercase">Analyst</th>'
                 f'<th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:0.7rem;text-transform:uppercase">Direction</th>'

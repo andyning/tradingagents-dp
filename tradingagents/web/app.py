@@ -854,11 +854,11 @@ def run():
                     f'<td style="padding:10px 16px;color:#ffffff;border-bottom:1px solid #d44e1a;font-size:1.28rem;line-height:1.55">{v}</td></tr>'
                     for k, v in dec_fields
                 )
-                st.markdown(f'<table style="width:100%;border-collapse:collapse;margin-bottom:12px;background:#EB5C20;border-radius:6px">{rows}</table>', unsafe_allow_html=True)
+                st.markdown(f'<table style="width:100%;border-collapse:collapse;margin-bottom:12px;background:#D34947;border-radius:6px">{rows}</table>', unsafe_allow_html=True)
             else:
                 clean = " ".join(l.strip() for l in (decision or "").split("\n") if l.strip() and not l.strip().startswith("#") and not l.strip().startswith("**Rating"))
                 if clean:
-                    st.markdown(f'<table style="width:100%;border-collapse:collapse;margin-bottom:12px;background:#EB5C20;border-radius:6px"><tr><td style="padding:10px 16px;color:#fff3e8;font-weight:600;white-space:nowrap;border-bottom:1px solid #d44e1a;vertical-align:top;width:160px;font-size:1.31rem">Summary</td><td style="padding:10px 16px;color:#ffffff;border-bottom:1px solid #d44e1a;font-size:1.28rem;line-height:1.55">{clean[:600]}</td></tr></table>', unsafe_allow_html=True)
+                    st.markdown(f'<table style="width:100%;border-collapse:collapse;margin-bottom:12px;background:#D34947;border-radius:6px"><tr><td style="padding:10px 16px;color:#fff3e8;font-weight:600;white-space:nowrap;border-bottom:1px solid #d44e1a;vertical-align:top;width:160px;font-size:1.31rem">Summary</td><td style="padding:10px 16px;color:#ffffff;border-bottom:1px solid #d44e1a;font-size:1.28rem;line-height:1.55">{clean[:600]}</td></tr></table>', unsafe_allow_html=True)
 
             # ── 7-Analyst Reports ──
             st.markdown("#### 7-Analyst Reports")

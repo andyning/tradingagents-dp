@@ -353,56 +353,32 @@ def _build_export_report(state: dict, symbol: str, trade_date: str, market: str,
     return "\n".join(sections)
 
 
+@st.cache_resource(show_spinner=False)
 def _check_data_sources():
-    """Quick health check — runs once per session, skips heavy network tests on startup."""
-    if st.session_state.get("_health_checked"):
-        return
-    st.session_state._health_checked = True
-    # Run checks in background thread to avoid blocking UI
-    def _bg_health():
-        # Test each source independently
+    """Run health checks once per session. Returns a dict of source->status."""
+    result = {}
+    tests = [
+        ("futu", lambda: (__import__("futu").OpenQuoteContext("127.0.0.1", 11111).close(), True)[1]),
+        ("baostock", lambda: (bs:=__import__("baostock"), bs.login(), bs.logout(), True)[3]),
+        ("efinance", lambda: __import__("efinance").stock.get_base_info("600519") is not None),
+        ("akshare", lambda: __import__("akshare").stock_zh_a_spot() is not None),
+        ("yfinance", lambda: __import__("yfinance").Ticker("AAPL").history(period="1d") is not None),
+    ]
+    for key, fn in tests:
         try:
-            from futu import OpenQuoteContext
-            ctx = OpenQuoteContext(host="127.0.0.1", port=11111)
-            ctx.close()
-            st.session_state._health_futu = "OK"
+            fn()
+            result[key] = "OK"
         except Exception:
-            st.session_state._health_futu = "DOWN"
-        try:
-            import baostock as bs
-            lg = bs.login()
-            st.session_state._health_baostock = "OK" if lg.error_code == "0" else "DOWN"
-            bs.logout()
-        except Exception:
-            st.session_state._health_baostock = "DOWN"
-        try:
-            import efinance as ef
-            ef.stock.get_base_info("600519")
-            st.session_state._health_efinance = "OK"
-        except Exception:
-            st.session_state._health_efinance = "DOWN"
-        try:
-            import akshare as ak
-            ak.stock_zh_a_spot()
-            st.session_state._health_akshare = "OK"
-        except Exception:
-            st.session_state._health_akshare = "DOWN"
-        try:
-            import yfinance as yf
-            yf.Ticker("AAPL").history(period="1d")
-            st.session_state._health_yfinance = "OK"
-        except Exception:
-            st.session_state._health_yfinance = "DOWN"
-
-    threading.Thread(target=_bg_health, daemon=True).start()
+            result[key] = "DOWN"
+    return result
 
 
 # ── Main ────────────────────────────────────────────────────────────────
 def run():
     from tradingagents.graph.progress import get_progress, STEP_LABELS
 
-    # Run health check once per session
-    _check_data_sources()
+    # Run health check once per session (cached, non-blocking after first run)
+    health_status = _check_data_sources()
 
     # Init session keys
     if "_running" not in st.session_state: st.session_state._running = False
@@ -450,7 +426,7 @@ def run():
                              label_visibility="collapsed")
         st.divider()
 
-        # Data source health — compact, green=OK / red=DOWN / gray=?
+        # Data source health — compact, green=OK / red=DOWN
         st.divider()
         st.markdown("**Data Sources Status**")
         all_sources = [
@@ -458,12 +434,12 @@ def run():
             ("akshare", "akshare"), ("efinance", "efinance"), ("yfinance", "yfinance"),
         ]
         for label, key in all_sources:
-            status = st.session_state.get(f"_health_{key}", "?")
+            status = health_status.get(key, "?")
             color = {"OK": "#059669", "?": "#6b7280", "DOWN": "#dc2626"}.get(status, "#dc2626")
             st.markdown(
-                f'<span style="display:flex;align-items:center;gap:8px;line-height:1.15;padding:1px 0">'
+                f'<span style="display:flex;align-items:center;gap:8px;line-height:1.1;padding:0">'
                 f'<span style="font-size:1.3rem;color:{color}">●</span>'
-                f'<span style="color:rgba(255,255,255,.85);font-size:0.76rem">{label}</span>'
+                f'<span style="color:rgba(255,255,255,.85);font-size:0.75rem">{label}</span>'
                 f'</span>',
                 unsafe_allow_html=True,
             )

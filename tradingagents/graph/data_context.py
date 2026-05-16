@@ -196,7 +196,7 @@ def for_fundamentals_analyst(state: dict[str, Any]) -> str:
             # If PE/PB missing from K-line (IB, Futu K-line), try Futu snapshot
             if (pd.isna(pe) or pd.isna(pb)) and market in ("a_stock", "hk_stock", "us_stock"):
                 try:
-                    from futu import OpenQuoteContext
+                    from tradingagents.data.sources.futu import _get_shared_futu
                     futu_sym = symbol.strip().upper()
                     if market == "a_stock":
                         futu_sym = f"{'SH' if futu_sym.startswith('6') else 'SZ'}.{futu_sym}"
@@ -204,7 +204,7 @@ def for_fundamentals_analyst(state: dict[str, Any]) -> str:
                         futu_sym = f"HK.{futu_sym:0>5}"
                     else:
                         futu_sym = f"US.{futu_sym}"
-                    ctx = OpenQuoteContext(host="127.0.0.1", port=11111)
+                    ctx = _get_shared_futu()
                     ret, snap = ctx.get_market_snapshot([futu_sym])
                     ctx.close()
                     if ret == 0 and snap is not None and not snap.empty:

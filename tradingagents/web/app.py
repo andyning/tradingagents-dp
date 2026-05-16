@@ -154,7 +154,7 @@ def _fetch_stock_data(symbol: str, market: str, days: int = 30):
 def _enrich_stock_info(info: dict, symbol: str, market: str) -> dict:
     """Add extra metrics: market cap, float shares, etc. from Futu."""
     try:
-        from futu import OpenQuoteContext
+        from tradingagents.data.sources.futu import _get_shared_futu
         futu_sym = symbol.strip().upper()
         if market == "a_stock":
             futu_sym = f"{'SH' if futu_sym.startswith('6') else 'SZ'}.{futu_sym}"
@@ -162,9 +162,11 @@ def _enrich_stock_info(info: dict, symbol: str, market: str) -> dict:
             futu_sym = f"HK.{futu_sym:0>5}"
         else:
             futu_sym = f"US.{futu_sym}"
-        ctx = OpenQuoteContext(host="127.0.0.1", port=11111)
+        ctx = _get_shared_futu()
+        if ctx is None:
+            return info
         ret, df = ctx.get_market_snapshot([futu_sym])
-        ctx.close()
+        # Shared connection — kept open
         if ret == 0 and df is not None and not df.empty:
             row = df.iloc[0]
             # Map Futu fields to our info dict
@@ -221,10 +223,10 @@ def _lookup_stock_name(symbol: str, market: str) -> str:
         except Exception:
             pass
         try:
-            from futu import OpenQuoteContext
-            ctx = OpenQuoteContext(host="127.0.0.1", port=11111)
+            from tradingagents.data.sources.futu import _get_shared_futu
+            ctx = _get_shared_futu()
             ret, df = ctx.get_market_snapshot([f"{'SH' if s.startswith('6') else 'SZ'}.{s}"])
-            ctx.close()
+            # Shared connection — kept open
             if ret == 0 and df is not None and not df.empty:
                 name = df.iloc[0].get("name", "")
                 if name and name != s:
@@ -234,10 +236,10 @@ def _lookup_stock_name(symbol: str, market: str) -> str:
     # HK stock: Futu → yfinance
     elif market == "hk_stock":
         try:
-            from futu import OpenQuoteContext
-            ctx = OpenQuoteContext(host="127.0.0.1", port=11111)
+            from tradingagents.data.sources.futu import _get_shared_futu
+            ctx = _get_shared_futu()
             ret, df = ctx.get_market_snapshot([f"HK.{s:0>5}"])
-            ctx.close()
+            # Shared connection — kept open
             if ret == 0 and df is not None and not df.empty:
                 name = df.iloc[0].get("name", "")
                 if name and name != s:
@@ -265,10 +267,10 @@ def _lookup_stock_name(symbol: str, market: str) -> str:
         except Exception:
             pass
         try:
-            from futu import OpenQuoteContext
-            ctx = OpenQuoteContext(host="127.0.0.1", port=11111)
+            from tradingagents.data.sources.futu import _get_shared_futu
+            ctx = _get_shared_futu()
             ret, df = ctx.get_market_snapshot([f"US.{s}"])
-            ctx.close()
+            # Shared connection — kept open
             if ret == 0 and df is not None and not df.empty:
                 name = df.iloc[0].get("name", "")
                 if name and name != s:

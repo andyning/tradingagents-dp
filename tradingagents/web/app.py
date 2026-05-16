@@ -601,8 +601,8 @@ def run():
                 fields = {}
                 for line in decision.split("\n"):
                     line = line.strip()
-                    if line.startswith("**") and ":**" in line:
-                        parts = line.split(":**", 1)
+                    if line.startswith("**") and "**:" in line:
+                        parts = line.split("**: ", 1)
                         key = parts[0].replace("**", "").strip()
                         val = parts[1].strip()
                         if key.lower() != "rating" and val:

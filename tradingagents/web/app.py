@@ -22,44 +22,44 @@ st.set_page_config(page_title="TradingAgents", page_icon="", layout="wide", init
 
 # ── CSS ─────────────────────────────────────────────────────────────────
 st.markdown("""<style>
-    .stApp { background: #f8fafc; font-size: 1.1rem; }
+    .stApp { background: #f8fafc; font-size: 0.88rem; }
     .main .block-container { padding: 1.5rem 2rem; max-width: 1400px; }
     /* Sidebar — Mars Green */
     section[data-testid="stSidebar"] { background: #018474; border-right: none; }
-    section[data-testid="stSidebar"] h3 { color: #fff !important; font-size: 3.2rem !important; font-weight: 800 !important; letter-spacing: .02em !important; }
-    section[data-testid="stSidebar"] .stCaption { color: rgba(255,255,255,.7) !important; font-size: 1.6rem !important; }
+    section[data-testid="stSidebar"] h3 { color: #fff !important; font-size: 2.56rem !important; font-weight: 800 !important; letter-spacing: .02em !important; }
+    section[data-testid="stSidebar"] .stCaption { color: rgba(255,255,255,.7) !important; font-size: 1.28rem !important; }
     section[data-testid="stSidebar"] .stMarkdown,
     section[data-testid="stSidebar"] p, section[data-testid="stSidebar"] span,
     section[data-testid="stSidebar"] label,
     section[data-testid="stSidebar"] div { color: #fff !important; }
-    section[data-testid="stSidebar"] .stMarkdown p strong { color: #fff !important; font-weight: 700 !important; font-size: 1.64rem !important; letter-spacing: .04em !important; }
+    section[data-testid="stSidebar"] .stMarkdown p strong { color: #fff !important; font-weight: 700 !important; font-size: 1.31rem !important; letter-spacing: .04em !important; }
     section[data-testid="stSidebar"] hr { border-color: rgba(255,255,255,.2) !important; }
     /* Sidebar input labels: bold */
-    .ig-label { font-size: 1.4rem !important; color: rgba(255,255,255,.8) !important; font-weight: 700 !important; text-transform: uppercase; letter-spacing: .06em; margin: 10px 0 4px 0; }
+    .ig-label { font-size: 1.12rem !important; color: rgba(255,255,255,.8) !important; font-weight: 700 !important; text-transform: uppercase; letter-spacing: .06em; margin: 10px 0 4px 0; }
     h2, h3 { color: #111827; font-weight: 600; }
     .mc { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px 16px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
-    .mc .mcl { font-size: 1.36rem; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; font-weight: 500; }
-    .mc .mcv { font-size: 2.5rem; font-weight: 700; color: #111827; }
-    .mc .mcs { font-size: 1.56rem; margin-top: 2px; }
+    .mc .mcl { font-size: 1.09rem; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; font-weight: 500; }
+    .mc .mcv { font-size: 2rem; font-weight: 700; color: #111827; }
+    .mc .mcs { font-size: 1.25rem; margin-top: 2px; }
     .up { color: #dc2626 !important; } .down { color: #059669 !important; }
-    .badge { display: inline-block; padding: 5px 20px; border-radius: 6px; font-weight: 700; font-size: 1.9rem; letter-spacing: .03em; }
+    .badge { display: inline-block; padding: 5px 20px; border-radius: 6px; font-weight: 700; font-size: 1.52rem; letter-spacing: .03em; }
     .badge-BUY { background: #d1fae5; color: #065f46; border: 1px solid #10b981; }
     .badge-OVERWEIGHT { background: #dbeafe; color: #1e40af; border: 1px solid #3b82f6; }
     .badge-HOLD { background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; }
     .badge-UNDERWEIGHT { background: #ffedd5; color: #9a3412; border: 1px solid #f97316; }
     .badge-SELL { background: #fee2e2; color: #991b1b; border: 1px solid #ef4444; }
     .srow { display: flex; align-items: center; gap: 6px; padding: 3px 0; }
-    .sdot { width: 14px; text-align: center; font-size: 1.4rem; flex-shrink: 0; }
-    .slbl { font-size: 1.56rem; white-space: nowrap; }
+    .sdot { width: 14px; text-align: center; font-size: 1.12rem; flex-shrink: 0; }
+    .slbl { font-size: 1.25rem; white-space: nowrap; }
     .s-act .sdot { color: #2563eb; } .s-act .slbl { color: #2563eb; font-weight: 600; }
     .s-done .sdot { color: #059669; } .s-done .slbl { color: #059669; }
     .s-wait .sdot { color: #d1d5db; } .s-wait .slbl { color: #9ca3af; }
     .tbox { text-align: center; padding: 8px 4px; background: rgba(255,255,255,.15); border-radius: 6px; }
-    .tbox .tv { font-size: 1.76rem; font-weight: 700; color: #fff; }
-    .tbox .tl { font-size: 1.24rem; color: rgba(255,255,255,.7); text-transform: uppercase; }
+    .tbox .tv { font-size: 1.41rem; font-weight: 700; color: #fff; }
+    .tbox .tl { font-size: 0.99rem; color: rgba(255,255,255,.7); text-transform: uppercase; }
     .dash-panel { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px 20px; box-shadow: 0 1px 2px rgba(0,0,0,.04); margin-bottom: 10px; }
-    .dash-panel h4 { color: #111827; font-size: 1.7rem; font-weight: 600; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #f1f5f9; }
-    .dash-panel p { font-size: 1.6rem; color: #4b5563; line-height: 1.5; }
+    .dash-panel h4 { color: #111827; font-size: 1.36rem; font-weight: 600; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #f1f5f9; }
+    .dash-panel p { font-size: 1.28rem; color: #4b5563; line-height: 1.5; }
     .stProgress > div > div > div > div { background: #2563eb; }
     /* Input field emphasis */
     section[data-testid="stSidebar"] input[type="text"],
@@ -80,7 +80,7 @@ st.markdown("""<style>
     }
     header, footer, #MainMenu { visibility: hidden; }
     /* Refresh button — match Prussian blue */
-    .stButton button { border-radius: 6px !important; font-size: 1.56rem !important; padding: 4px 12px !important;
+    .stButton button { border-radius: 6px !important; font-size: 1.25rem !important; padding: 4px 12px !important;
         color: #fff !important; border: 1px solid #0D3869 !important; background: #0D3869 !important; font-weight: 500 !important; }
     .stButton button:hover { background: #0a2d55 !important; border-color: #0a2d55 !important; }
     header, footer, #MainMenu, [data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecoration"], [data-testid="stStatusWidget"] { display: none !important; }
@@ -438,7 +438,7 @@ def run():
         st.markdown("""
         <style>
         .input-group { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; padding: 2px 12px 8px 12px; margin-bottom: 8px; }
-        .input-group .ig-label { font-size: 1.4rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin: 8px 0 2px 0; }
+        .input-group .ig-label { font-size: 1.12rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin: 8px 0 2px 0; }
         </style>
         """, unsafe_allow_html=True)
 
@@ -453,7 +453,7 @@ def run():
 
         st.markdown('<div class="ig-label">Market</div>', unsafe_allow_html=True)
         market = _detect_market(symbol)
-        st.markdown(f'<div style="color:rgba(255,255,255,.45);font-size:1.56rem;padding:4px 0">{_market_label(market)}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="color:rgba(255,255,255,.45);font-size:1.25rem;padding:4px 0">{_market_label(market)}</div>', unsafe_allow_html=True)
 
         st.markdown('<div class="ig-label">Data Window</div>', unsafe_allow_html=True)
         dw_default = last.get("data_window", 30)
@@ -490,7 +490,7 @@ def run():
                 tag = '<span style="color:#6b7280">—</span>'
             with cols[i % 2]:
                 st.markdown(
-                    f'<span style="color:rgba(255,255,255,.85);font-size:1.48rem">{labels[key]}</span>'
+                    f'<span style="color:rgba(255,255,255,.85);font-size:1.18rem">{labels[key]}</span>'
                     f'<span style="margin-left:6px">{tag}</span>',
                     unsafe_allow_html=True,
                 )
@@ -845,14 +845,14 @@ def run():
             if dec_fields:
                 rows = "".join(
                     f'<tr><td style="padding:10px 16px;color:#6b7280;font-weight:600;white-space:nowrap;border-bottom:1px solid #f1f5f9;vertical-align:top;width:160px">{k}</td>'
-                    f'<td style="padding:10px 16px;color:#111827;border-bottom:1px solid #f1f5f9;font-size:1.76rem;line-height:1.55">{v}</td></tr>'
+                    f'<td style="padding:10px 16px;color:#111827;border-bottom:1px solid #f1f5f9;font-size:1.41rem;line-height:1.55">{v}</td></tr>'
                     for k, v in dec_fields
                 )
                 st.markdown(f'<table style="width:100%;border-collapse:collapse;margin-bottom:12px">{rows}</table>', unsafe_allow_html=True)
             else:
                 clean = " ".join(l.strip() for l in (decision or "").split("\n") if l.strip() and not l.strip().startswith("#") and not l.strip().startswith("**Rating"))
                 if clean:
-                    st.markdown(f'<table style="width:100%;border-collapse:collapse;margin-bottom:12px"><tr><td style="padding:10px 16px;color:#6b7280;font-weight:600;white-space:nowrap;border-bottom:1px solid #f1f5f9;vertical-align:top;width:160px">Summary</td><td style="padding:10px 16px;color:#111827;border-bottom:1px solid #f1f5f9;font-size:1.76rem;line-height:1.55">{clean[:600]}</td></tr></table>', unsafe_allow_html=True)
+                    st.markdown(f'<table style="width:100%;border-collapse:collapse;margin-bottom:12px"><tr><td style="padding:10px 16px;color:#6b7280;font-weight:600;white-space:nowrap;border-bottom:1px solid #f1f5f9;vertical-align:top;width:160px">Summary</td><td style="padding:10px 16px;color:#111827;border-bottom:1px solid #f1f5f9;font-size:1.41rem;line-height:1.55">{clean[:600]}</td></tr></table>', unsafe_allow_html=True)
 
             # ── 7-Analyst Reports ──
             st.markdown("#### 7-Analyst Reports")
@@ -880,16 +880,16 @@ def run():
                             break
                 report_rows += (
                     f'<tr>'
-                    f'<td style="padding:8px 12px;color:#374151;font-size:1.64rem;font-weight:600;border-bottom:1px solid #f1f5f9;white-space:nowrap;vertical-align:top;width:140px">{label}</td>'
-                    f'<td style="padding:8px 12px;color:#9ca3af;font-size:1.5rem;border-bottom:1px solid #f1f5f9;white-space:nowrap;vertical-align:top;width:150px">{data_input}</td>'
-                    f'<td style="padding:8px 12px;color:#4b5563;font-size:1.6rem;border-bottom:1px solid #f1f5f9;line-height:1.4">{finding}</td>'
+                    f'<td style="padding:8px 12px;color:#374151;font-size:1.31rem;font-weight:600;border-bottom:1px solid #f1f5f9;white-space:nowrap;vertical-align:top;width:140px">{label}</td>'
+                    f'<td style="padding:8px 12px;color:#9ca3af;font-size:1.2rem;border-bottom:1px solid #f1f5f9;white-space:nowrap;vertical-align:top;width:150px">{data_input}</td>'
+                    f'<td style="padding:8px 12px;color:#4b5563;font-size:1.28rem;border-bottom:1px solid #f1f5f9;line-height:1.4">{finding}</td>'
                     f'</tr>'
                 )
             st.markdown(
                 f'<div class="dash-panel"><table style="width:100%;border-collapse:collapse">'
-                f'<tr><th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:1.4rem;text-transform:uppercase">Analyst</th>'
-                f'<th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:1.4rem;text-transform:uppercase">Data Input</th>'
-                f'<th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:1.4rem;text-transform:uppercase">Key Finding</th></tr>'
+                f'<tr><th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:1.12rem;text-transform:uppercase">Analyst</th>'
+                f'<th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:1.12rem;text-transform:uppercase">Data Input</th>'
+                f'<th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:1.12rem;text-transform:uppercase">Key Finding</th></tr>'
                 f'{report_rows}</table></div>',
                 unsafe_allow_html=True,
             )
@@ -1075,16 +1075,16 @@ def run():
             chain_items.append(("Portfolio Manager", "Risk debate, Trader's plan, Research Manager's plan", pm_output))
 
             chain_rows = "".join(
-                f'<tr><td style="padding:8px 12px;color:#374151;font-size:1.64rem;font-weight:600;border-bottom:1px solid #f1f5f9;white-space:nowrap;vertical-align:top;width:160px">{k}</td>'
-                f'<td style="padding:8px 12px;color:#9ca3af;font-size:1.5rem;border-bottom:1px solid #f1f5f9;white-space:nowrap;vertical-align:top;width:140px">{d}</td>'
-                f'<td style="padding:8px 12px;color:#4b5563;font-size:1.6rem;border-bottom:1px solid #f1f5f9;line-height:1.4">{v}</td></tr>'
+                f'<tr><td style="padding:8px 12px;color:#374151;font-size:1.31rem;font-weight:600;border-bottom:1px solid #f1f5f9;white-space:nowrap;vertical-align:top;width:160px">{k}</td>'
+                f'<td style="padding:8px 12px;color:#9ca3af;font-size:1.2rem;border-bottom:1px solid #f1f5f9;white-space:nowrap;vertical-align:top;width:140px">{d}</td>'
+                f'<td style="padding:8px 12px;color:#4b5563;font-size:1.28rem;border-bottom:1px solid #f1f5f9;line-height:1.4">{v}</td></tr>'
                 for k, d, v in chain_items
             )
             st.markdown(
                 f'<div class="dash-panel"><table style="width:100%;border-collapse:collapse">'
-                f'<tr><th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:1.4rem;text-transform:uppercase">Agent</th>'
-                f'<th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:1.4rem;text-transform:uppercase">Input</th>'
-                f'<th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:1.4rem;text-transform:uppercase">Decision / Conclusion</th></tr>'
+                f'<tr><th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:1.12rem;text-transform:uppercase">Agent</th>'
+                f'<th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:1.12rem;text-transform:uppercase">Input</th>'
+                f'<th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:1.12rem;text-transform:uppercase">Decision / Conclusion</th></tr>'
                 f'{chain_rows}</table></div>',
                 unsafe_allow_html=True,
             )

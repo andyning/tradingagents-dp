@@ -7,28 +7,30 @@ from tradingagents.data.sources.ib import IBSource, _ib_contract
 
 
 class TestIBContract:
+    # _ib_contract returns (type_name, symbol, exchange, currency) tuple
+
     def test_a_stock_shanghai(self):
         c = _ib_contract("600519", "a_stock")
         assert c is not None
-        assert c.exchange == "SEHKNTL"
-        assert c.currency == "CNY"
+        assert c[2] == "SEHKNTL"
+        assert c[3] == "CNY"
 
     def test_a_stock_shenzhen(self):
         c = _ib_contract("000001", "a_stock")
         assert c is not None
-        assert c.currency == "CNY"
+        assert c[3] == "CNY"
 
     def test_hk_stock(self):
         c = _ib_contract("00700", "hk_stock")
         assert c is not None
-        assert c.exchange == "SEHK"
-        assert c.currency == "HKD"
+        assert c[2] == "SEHK"
+        assert c[3] == "HKD"
 
     def test_us_stock(self):
         c = _ib_contract("AMD", "us_stock")
         assert c is not None
-        assert c.exchange == "SMART"
-        assert c.currency == "USD"
+        assert c[2] == "SMART"
+        assert c[3] == "USD"
 
 
 class TestIBWithoutGateway:

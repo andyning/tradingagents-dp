@@ -1,4 +1,4 @@
-# TradingAgents
+# TradingAgents-dp
 
 Multi-agent LLM investment analysis framework. 7 specialist analysts debate, a portfolio manager decides. A-shares, Hong Kong, and US markets.
 
@@ -19,11 +19,8 @@ Multi-agent LLM investment analysis framework. 7 specialist analysts debate, a p
 ### Install
 
 ```powershell
-# 1. Run the install script
 .\install.ps1
-
-# 2. Add your API key to .env
-notepad .env
+notepad .env          # add your DeepSeek key
 ```
 
 Or manually:
@@ -49,40 +46,65 @@ All other settings have sensible defaults.
 [Futu OpenAPI](https://support.futunn.com/topic464) provides free real-time and historical data for A-shares, HK, and US stocks. No account or deposit required.
 
 1. Download **Futu_OpenD-GUI** from [https://support.futunn.com/topic464](https://support.futunn.com/topic464)
-2. Install and launch OpenD — login with your phone number (no brokerage account needed)
-3. A F icon appears in the system tray — OpenD is running on `localhost:11111`
+2. Install and launch OpenD — login with phone number (no brokerage account needed)
+3. F icon appears in system tray — OpenD runs on `localhost:11111`
 
-Free tier (no account, no deposit): 100 subscriptions + 100 K-line requests per session. Sufficient for 10-20 stock analyses per day. When hitting the limit, the system auto-falls back to Baostock/akshare/efinance/yfinance.
+Free tier: 100 subscriptions + 100 K-line requests per session (~10-20 analyses/day). Limit hit → auto-fallback to Baostock/akshare/efinance/yfinance.
 
 ### Run
 
 ```powershell
-# Web dashboard (recommended)
-tradingagents-web
-
-# CLI
-tradingagents -s 600519 -d 2026-05-15
-
-# REST API
-tradingagents-api
-# → http://localhost:8000/docs
+tradingagents-web      # Web dashboard (recommended)
+tradingagents -s 600519 -d 2026-05-15   # CLI
+tradingagents-api                         # REST API → http://localhost:8000/docs
 ```
 
-## Analysis Depth
+## Features
 
-Three tiers for speed vs thoroughness:
+### Analysis Pipeline
 
 | Mode | Steps | Time | Best for |
 |------|-------|------|----------|
-| **Light** | 5 | ~2 min | Quick scan, candidate screening |
-| **Medium** | 13 | ~8 min | Daily decisions, weekly review |
+| **Light** | 5 | ~2 min | Quick scan, screening |
+| **Medium** | 13 | ~8 min | Daily decisions, review |
 | **Deep** | 16 | ~12 min | Large positions, high uncertainty |
 
-**Light**: Market/Tech → Fundamentals → News → Research Manager → Portfolio Manager
+### Dashboard
 
-**Medium**: 7 Analysts → Quality Gate → Bull/Bear Debate → Research Manager → Trader → Portfolio Manager
+Professional financial dashboard with:
+- **14 stock metrics**: Symbol, Name, Price, Change, PE-TTM, PE-动, Turnover, Market Cap, 成交额, 量比, 流通股, 总股本, 盈利?, PB
+- **Interactive K-line chart**: candlestick + volume, red-up/green-down (Chinese convention)
+- **Analyst Voting Table**: 7 analysts each output `[DIRECTION]` + `[KPI]` structured line, tally shown as "Bull N · Bear M · Neutral K"
+- **Investment Director Decision Summary**: structured table from SignalProcessor (rating, confidence, risk score, reasoning, position advice, time horizon)
+- **Multi-strategy backtest**: MA crossover, MACD signal cross, RSI mean-reversion compared side-by-side
+- **Industry PE comparison**: percentile ranking vs peer stocks
+- **Real-time progress**: per-step status with token tracking
+- **Report export**: one-click Markdown download
+- **Result caching**: auto-loads previous analysis for same symbol+depth, saves tokens
+- **Session persistence**: last symbol/depth/window restored on reload
 
-**Deep**: Full pipeline with three-way risk debate (Aggressive / Conservative / Neutral)
+### Memory & Reflection
+
+Each analysis stores structured results (rating, confidence, KPIs) to a per-ticker JSON file. Before the next analysis, past records are retrieved and injected as context. An LLM-based reflection generator produces structured lessons (Reasoning, Lesson, Watch) stored alongside each decision.
+
+### Data Sources
+
+All free. No registration needed.
+
+| Market | Primary | Secondary | Tertiary | Fallback |
+|--------|---------|-----------|----------|----------|
+| A-Share | Futu | Baostock | efinance | yfinance |
+| Hong Kong | Futu | akshare | efinance | yfinance |
+| US | Futu | akshare | efinance | yfinance |
+
+Market auto-detected from ticker format: 6-digit → A-share, 4-5 digit → HK, alphabetic → US. Data Sources Status panel shows real-time ON/OFF indicators.
+
+### LLM
+
+DeepSeek only (via OpenAI-compatible SDK). Two reasoning tiers:
+
+- **Quick think** (`deepseek-chat`): Analysts, debaters, trader
+- **Deep think** (`deepseek-reasoner`): Research Manager, Portfolio Manager
 
 ## Architecture
 
@@ -93,46 +115,30 @@ tradingagents/
 ├── logging.py             # structlog structured logging
 ├── llm/client.py          # DeepSeek (quick + deep think)
 ├── data/
-│   ├── a_stock.py         # A-share (Baostock → efinance → akshare fallback)
-│   ├── hk_stock.py        # Hong Kong (efinance → yfinance)
-│   ├── us_stock.py        # US (yfinance → efinance)
+│   ├── a_stock.py         # A-share (Futu → Baostock → efinance → yfinance)
+│   ├── hk_stock.py        # Hong Kong (Futu → akshare → efinance → yfinance)
+│   ├── us_stock.py        # US (Futu → akshare → efinance → yfinance)
 │   ├── schema.py          # Pydantic data validation
-│   ├── cache.py           # Parquet local cache
+│   ├── cache.py           # Parquet local cache + negative cache
 │   ├── retry.py           # Exponential backoff + multi-source fallback
-│   └── sources/           # Data source adapters
+│   └── sources/           # futu, baostock, efinance, akshare, yfinance
 ├── agents/
 │   ├── base.py            # Agent base class
 │   ├── schemas.py         # Pydantic inter-agent contracts
-│   └── prompts/           # 15 Jinja2 prompt templates
+│   └── prompts/           # 15 Jinja2 templates ([DIRECTION]/[KPI] structured output)
 ├── graph/
 │   ├── builder.py         # LangGraph topology (3 depth modes)
-│   ├── nodes.py           # Node functions
+│   ├── nodes.py           # Node functions with LLM retry
 │   ├── state.py           # AgentState TypedDict
-│   ├── data_context.py    # Pre-fetch real data per analyst
-│   └── progress.py        # Thread-safe progress tracker
+│   ├── data_context.py    # Pre-fetch real data per analyst + backtest + industry
+│   ├── progress.py        # Thread-safe progress tracker
+│   ├── signal_processor.py # Structured JSON extraction (14 regex patterns)
+│   ├── memory_store.py    # JSON-based analysis memory + LLM reflection
+│   └── news_filter.py     # Relevance scoring + dedup
 ├── backtesting/           # Backtrader engine + A-stock rules
 ├── cli/                   # Typer + Rich terminal UI
 └── web/                   # FastAPI + Streamlit dashboard
 ```
-
-### Data Sources
-
-All free. No registration needed. Futu OpenD recommended for best speed.
-
-| Market | Primary | Secondary | Tertiary | Fallback |
-|--------|---------|-----------|----------|----------|
-| A-Share | Futu | Baostock | efinance | yfinance |
-| Hong Kong | Futu | akshare | efinance | yfinance |
-| US | Futu | akshare | efinance | yfinance |
-
-Futu OpenD must be running locally. If not, the chain auto-falls back.
-
-### LLM
-
-DeepSeek only (via OpenAI-compatible SDK). Two reasoning tiers:
-
-- **Quick think** (`deepseek-chat`): Analysts, debaters, trader
-- **Deep think** (`deepseek-reasoner`): Research Manager, Portfolio Manager
 
 ## Python API
 
@@ -140,13 +146,14 @@ DeepSeek only (via OpenAI-compatible SDK). Two reasoning tiers:
 from tradingagents.graph import TradingAgentsGraph
 
 graph = TradingAgentsGraph()
-state, decision = graph.propagate(
+state, decision, signal = graph.propagate(
     "600519",           # ticker
     "2026-05-15",       # date
     market="a_stock",
     depth="medium",     # light / medium / deep
 )
-print(decision)
+print(signal["action"])  # Buy / Hold / Sell
+print(signal["confidence"])  # 0.85
 ```
 
 ## Backtesting
@@ -159,7 +166,7 @@ metrics = run_backtest("600519", "2024-01-01", "2024-12-31")
 print(generate_report(metrics))
 ```
 
-A-stock rules modeled: T+1 settlement, price limits (±10%/±20%/±5%), minimum lot sizes (100/200 shares), commission (0.025%) and stamp duty (0.05% sell only).
+A-stock rules: T+1 settlement, price limits (±10%/±20%/±5%), minimum lot (100/200), commission (0.025%), stamp duty (0.05% sell only).
 
 ## Configuration
 
@@ -168,26 +175,26 @@ A-stock rules modeled: T+1 settlement, price limits (±10%/±20%/±5%), minimum 
 | `DEEPSEEK_API_KEY` | — | Your API key (required) |
 | `TA_LLM_BASE_URL` | `https://api.deepseek.com` | Endpoint override |
 | `TA_ANALYSIS_DEPTH` | `medium` | `light` / `medium` / `deep` |
+| `TA_DATA_WINDOW` | `120` | Trading days to analyze |
 | `TA_MAX_DEBATE_ROUNDS` | `1` | Bull/Bear rounds |
 | `TA_MAX_RISK_DISCUSS_ROUNDS` | `1` | Risk debate rounds |
 | `TA_OUTPUT_LANGUAGE` | `Chinese` | Report language |
 | `TA_DATA_CACHE_DIR` | `~/.tradingagents/cache` | Data cache |
 | `TA_RESULTS_DIR` | `~/.tradingagents/results` | Saved reports |
 
-## Disclaimer
-
-This project is for educational and research purposes only. It does not constitute investment advice. All analysis reports are AI-generated and may contain errors. Consult licensed professionals for investment decisions.
-
 ## Credits
 
-This project is based on [TauricResearch/TradingAgents](https://github.com/TauricResearch/TradingAgents), a multi-agent LLM trading framework (Apache 2.0). It has been simplified and adapted to work exclusively with DeepSeek.
+Based on [TauricResearch/TradingAgents](https://github.com/TauricResearch/TradingAgents) (Apache 2.0), simplified and adapted for DeepSeek only.
 
 Key modifications:
-- Stripped LLM layer to DeepSeek only (removed 10+ providers)
-- Rewrote data layer with Baostock/efinance/akshare/yfinance and multi-level fallback
-- Extracted prompts to Jinja2 templates with real data pre-fetching
-- Added three analysis depths (Light/Medium/Deep)
-- Professional web dashboard with progress tracking and token statistics
+- LLM layer stripped to DeepSeek only
+- Data layer rewritten with Futu/Baostock/efinance/akshare/yfinance + multi-level fallback
+- 15 structured Jinja2 prompt templates with `[DIRECTION]/[KPI]` output format
+- Three analysis depths (Light/Medium/Deep)
+- Professional dashboard with analyst voting, decision summary, multi-strategy backtest
+- SignalProcessor: 14 regex patterns + LLM extraction for structured decisions
+- Memory system with LLM-based reflection learning
+- Market auto-detection, session persistence, data source health status
 
 Original paper: [TradingAgents: Multi-Agents LLM Financial Trading Framework](https://arxiv.org/abs/2412.20138)
 

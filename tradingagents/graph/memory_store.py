@@ -1,8 +1,18 @@
 """Persistent memory store for trading decisions.
 
 Lightweight JSON file-based storage. Each analysis result is saved
-per ticker. Before the next analysis, past results for the same ticker
-are retrieved and injected as context.
+per ticker to ``~/.tradingagents/cache/memory/{ticker}.json``.
+
+Architecture:
+- store_analysis(): saves decision metadata + auto-generates LLM reflection
+- retrieve_memories(): loads past analyses for a ticker, most recent first
+- get_memory_context(): formats memories as Markdown for prompt injection
+- generate_reflection(): uses quick LLM to produce structured lessons
+
+Thread safety: file reads/writes are atomic on most OSes. No concurrent
+write protection — assumes single process per ticker.
+
+Limits: MAX_MEMORIES_PER_TICKER = 20 entries per file. Oldest trimmed.
 """
 
 from __future__ import annotations

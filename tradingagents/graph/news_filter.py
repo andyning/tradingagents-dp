@@ -1,11 +1,19 @@
 """News relevance filter — keeps only news relevant to the target stock.
 
-Three-tier filtering:
-  1. Keyword match (company name, ticker, industry terms)
-  2. Heuristic scoring (title length, source credibility, recency)
-  3. De-duplication (similar titles merged)
+Three-tier filtering pipeline:
+  1. Noise removal: filters out ads, sponsored content, subscription prompts
+  2. Heuristic scoring: keyword match + source credibility + recency bonus
+  3. De-duplication: merges items with identical first-30/last-10 chars
 
-All free. No ML model needed.
+Scoring rubric (additive):
+  - +1.0 per keyword hit in title
+  - +2.0 if ticker symbol appears exactly
+  - +0.5 for reasonable title length (15-150 chars)
+  - +0.5 for known credible financial sources
+  - +1.0 if published within 24h, +0.5 within 72h
+
+Items with score <= 0 are filtered out. Max 15 items returned.
+No ML model or API key required — runs entirely locally.
 """
 
 from __future__ import annotations

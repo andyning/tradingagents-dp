@@ -404,8 +404,18 @@ def _check_data_sources():
 def run():
     from tradingagents.graph.progress import get_progress, STEP_LABELS
 
-    # Run health check (cached — fast TCP, runs once per session)
-    health_status = _check_data_sources()
+    # Run health check once per session (cached, fast TCP)
+    if "_health_done" not in st.session_state:
+        st.session_state._health_done = False
+    if not st.session_state._health_done:
+        health_status = _check_data_sources()
+        for k, v in health_status.items():
+            st.session_state[f"_health_{k}"] = v
+        st.session_state._health_done = True
+    # Build health dict from session state
+    health_status = {}
+    for k in ("futu", "baostock", "efinance", "akshare", "yfinance"):
+        health_status[k] = st.session_state.get(f"_health_{k}", "?")
 
     # Init session keys
     if "_running" not in st.session_state: st.session_state._running = False

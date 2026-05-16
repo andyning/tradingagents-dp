@@ -36,6 +36,12 @@ def _get_shared_ib(host: str = _DEFAULT_HOST, port: int = _DEFAULT_PORT):
     """Get or create a SINGLE persistent IB connection. Thread-safe.
     Auto-reconnects if the connection was dropped."""
     global _shared_ib, _shared_refcount
+    # Ensure event loop exists BEFORE any ib_insync call
+    import asyncio
+    try:
+        asyncio.get_event_loop()
+    except RuntimeError:
+        asyncio.set_event_loop(asyncio.new_event_loop())
     with _shared_lock:
         # Check if existing connection is still alive
         if _shared_ib is not None:
@@ -52,11 +58,8 @@ def _get_shared_ib(host: str = _DEFAULT_HOST, port: int = _DEFAULT_PORT):
                 pass
             _shared_ib = None
 
-        # Create fresh connection — ib_insync needs an event loop per thread
+        # Create fresh connection
         try:
-            import asyncio
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
             from ib_insync import IB
             _shared_ib = IB()
             _shared_ib.connect(host, port, clientId=_CLIENT_ID, timeout=8)

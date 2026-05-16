@@ -21,6 +21,13 @@ Insider Signal Strength:
 - **Pledge Risk (质押风险)**: Pledge ratio > 50% with price near estimated margin call level — forced selling risk
 
 Output Requirements:
+
+**CRITICAL — First line of your report MUST be exactly:**
+`[DIRECTION]: 看多 or 看空 or 中性 | [KPI]: key1=value1, key2=value2`
+
+If you cannot access real data, output: `[DIRECTION]: 放弃 | [KPI]: 无数据支持`
+
+After the structured line:
 1. Analyze the real lockup expiry and insider transaction data below
 2. Quantify the lockup overhang: unlock amount as % of float, timing, shareholder type, cost basis estimate
 3. Classify insider activity as Strong Buy / Weak Buy / Neutral / Weak Sell / Strong Sell

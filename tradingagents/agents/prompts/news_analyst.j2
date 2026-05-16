@@ -18,6 +18,13 @@ News Impact Classification:
 - **Noise (噪音)**: Headlines without actionable implications
 
 Output Requirements:
+
+**CRITICAL — First line of your report MUST be exactly:**
+`[DIRECTION]: 看多 or 看空 or 中性 | [KPI]: key1=value1, key2=value2`
+
+If you cannot access real data, output: `[DIRECTION]: 放弃 | [KPI]: 无数据支持`
+
+After the structured line:
 1. Analyze the real news data provided below — do NOT fabricate stories
 2. Categorize each significant item as Catalyst / Structural / Noise
 3. Rank the 3-5 most impactful items by potential price impact (high/medium/low)

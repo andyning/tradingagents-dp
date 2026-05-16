@@ -39,7 +39,15 @@ Available Technical Indicators — select and interpret the most relevant ones:
 - `vwma` — Volume-weighted moving average: volume-confirmed trend validation
 
 Output Requirements:
-1. ANALYZE the K-line data and technical indicators from the real data below
+
+**CRITICAL — First line of your report MUST be exactly:**
+`[DIRECTION]: 看多 or 看空 or 中性 | [KPI]: key1=value1, key2=value2`
+
+If you cannot access real data, output: `[DIRECTION]: 放弃 | [KPI]: 无数据支持`
+The [DIRECTION]/[KPI] line must be the very first line of your response. No preamble.
+
+After the structured line:
+1. Analyze the K-line data and technical indicators from the real data below
 2. Produce a detailed technical analysis with specific numerical values
 3. End with a Markdown table: | Indicator | Value | Signal | Interpretation |
 

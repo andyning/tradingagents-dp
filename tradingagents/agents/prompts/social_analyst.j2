@@ -17,6 +17,13 @@ Sentiment Dimensions to Assess:
 - **Institutional vs Retail Gap**: Are professionals and retail investors aligned or opposed?
 
 Output Requirements:
+
+**CRITICAL — First line of your report MUST be exactly:**
+`[DIRECTION]: 看多 or 看空 or 中性 | [KPI]: key1=value1, key2=value2`
+
+If you cannot access real data, output: `[DIRECTION]: 放弃 | [KPI]: 无数据支持`
+
+After the structured line:
 1. Assess overall sentiment direction, intensity, and trend
 2. Identify the dominant narrative themes driving sentiment (product, policy, market structure, etc.)
 3. Flag any sentiment extremes that could signal reversals

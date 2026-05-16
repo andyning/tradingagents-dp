@@ -637,19 +637,50 @@ def run():
                     st.markdown(f'<div class="dash-panel"><h4>Decision Summary</h4><p style="color:#374151;font-size:0.9rem">{(decision or "")[:500]}</p></div>', unsafe_allow_html=True)
 
 
-            st.markdown("#### Analyst Summaries")
-            sc = st.columns(3)
-            for i, (label, key) in enumerate(report_keys):
+            # ── Analyst Vote Table ──
+            st.markdown("#### Analyst Voting Summary")
+            import re as _re
+            votes = []
+            dir_colors = {"看多": "#059669", "看空": "#dc2626", "中性": "#6b7280", "放弃": "#9ca3af"}
+            for label, key in report_keys:
                 content = state.get(key, "") if isinstance(state, dict) else ""
-                summary = ""
+                direction = "—"
+                kpi = "—"
                 if content:
-                    for line in content.split("\n"):
-                        clean = line.strip().lstrip("#").strip()
-                        if len(clean) > 30 and not clean.startswith("*"):
-                            summary = clean[:140] + "…" if len(clean) > 140 else clean
-                            break
-                with sc[i % 3]:
-                    st.markdown(f'<div class="dash-panel"><h4>{label}</h4><p>{summary or "(see full report tab)"}</p></div>', unsafe_allow_html=True)
+                    m = _re.search(r'\[DIRECTION\]\s*:\s*(.+?)\s*\|', content)
+                    if m:
+                        direction = m.group(1).strip()
+                    m2 = _re.search(r'\[KPI\]\s*:\s*(.+?)$', content, _re.MULTILINE)
+                    if m2:
+                        kpi = m2.group(1).strip()[:120]
+                votes.append((label, direction, kpi))
+
+            # Build vote table
+            rows_html = ""
+            bull = sum(1 for _, d, _ in votes if d == "看多")
+            bear = sum(1 for _, d, _ in votes if d == "看空")
+            neutral = sum(1 for _, d, _ in votes if d in ("中性", "放弃", "—"))
+            for label, d, kpi in votes:
+                color = dir_colors.get(d, "#9ca3af")
+                kpi_display = kpi if kpi and kpi != "—" else "—"
+                rows_html += (
+                    f'<tr>'
+                    f'<td style="padding:8px 12px;color:#374151;font-size:0.85rem;font-weight:600;border-bottom:1px solid #f1f5f9;white-space:nowrap">{label}</td>'
+                    f'<td style="padding:8px 12px;color:{color};font-weight:700;font-size:0.85rem;border-bottom:1px solid #f1f5f9;white-space:nowrap">{d}</td>'
+                    f'<td style="padding:8px 12px;color:#6b7280;font-size:0.82rem;border-bottom:1px solid #f1f5f9">{kpi_display}</td>'
+                    f'</tr>'
+                )
+            tally = f"看多 {bull} · 看空 {bear} · 中性/弃权 {neutral}"
+            tally_color = "#059669" if bull > bear else "#dc2626" if bear > bull else "#6b7280"
+            st.markdown(
+                f'<div class="dash-panel"><h4>Analyst Votes <span style="font-weight:400;color:{tally_color};font-size:0.85rem">({tally})</span></h4>'
+                f'<table style="width:100%;border-collapse:collapse">'
+                f'<tr><th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:0.7rem;text-transform:uppercase">Analyst</th>'
+                f'<th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:0.7rem;text-transform:uppercase">Direction</th>'
+                f'<th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:0.7rem;text-transform:uppercase">Key KPIs</th></tr>'
+                f'{rows_html}</table></div>',
+                unsafe_allow_html=True,
+            )
 
         # ── Tabs 1-9: Reports ──
         for tab, (label, key) in zip(tabs[1:], report_keys):

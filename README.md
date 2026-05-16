@@ -41,15 +41,15 @@ DEEPSEEK_API_KEY=sk-your-key-here
 
 All other settings have sensible defaults.
 
-### Futu OpenD (recommended — fast, free, multi-market)
+### Futu OpenD (recommended — fast, multi-market)
 
-[Futu OpenAPI](https://support.futunn.com/topic464) provides free real-time and historical data for A-shares, HK, and US stocks. No account or deposit required.
+[Futu OpenAPI](https://support.futunn.com/topic464) provides real-time and historical data for A-shares, HK, and US stocks. No brokerage account required.
 
 1. Download **Futu_OpenD-GUI** from [https://support.futunn.com/topic464](https://support.futunn.com/topic464)
-2. Install and launch OpenD — login with phone number (no brokerage account needed)
+2. Install and launch OpenD — login with phone number
 3. F icon appears in system tray — OpenD runs on `localhost:11111`
 
-Free tier: 100 subscriptions + 100 K-line requests per session (~10-20 analyses/day). Limit hit → auto-fallback to Baostock/akshare/efinance/yfinance.
+Starting quota (no deposit): 100 subscriptions + 100 K-line requests per session. Sufficient for personal use. Quota can be increased by depositing funds or trading via Futu. When limit is hit, the system auto-falls back to Baostock/akshare/efinance/yfinance.
 
 ### Run
 
@@ -89,7 +89,7 @@ Each analysis stores structured results (rating, confidence, KPIs) to a per-tick
 
 ### Data Sources
 
-All free. No registration needed.
+Baostock/akshare/efinance are free with no registration. Futu requires OpenD login (no brokerage account needed) with a starting quota of 100 requests/session. yfinance is free but often rate-limited in China.
 
 | Market | Primary | Secondary | Tertiary | Fallback |
 |--------|---------|-----------|----------|----------|

@@ -591,58 +591,33 @@ def run():
                     st.markdown(f'<div class="mc"><div class="mcl">Debate Rounds</div><div class="mcv">{rounds}</div><div class="mcs">Bull vs Bear</div></div>', unsafe_allow_html=True)
 
             st.markdown('<div style="margin-top:12px"></div>', unsafe_allow_html=True)
+            # Clean decision rationale — no redundant table
             with st.container():
-                st.markdown('<div class="dash-panel"><h4>Final Decision</h4></div>', unsafe_allow_html=True)
-                # Parse decision into clean table — handle both markdown and JSON fallback
-                import json as _json
-                fields = {}
-                # Try JSON fallback format first
-                if decision.strip().startswith("{"):
-                    try:
-                        data = _json.loads(decision.strip().replace("'", '"'))
-                        key_map = {
-                            "rating": "Rating", "confidence": "Confidence",
-                            "reasoning": "Reasoning", "risk_assessment": "Risk Assessment",
-                            "position_advice": "Position Advice", "time_horizon": "Time Horizon",
-                        }
-                        for k, v in data.items():
-                            if isinstance(v, str) and len(v) > 3:
-                                fields[key_map.get(k, k.title())] = v
-                            elif not isinstance(v, (dict, list)):
-                                fields[key_map.get(k, k.title())] = str(v)
-                    except Exception:
-                        pass
-                # Try markdown format: **Key**: value
-                if not fields:
-                    for line in decision.split("\n"):
-                        line = line.strip()
-                        if line.startswith("**") and ":**" in line:
-                            # **Key**: value on same line
-                            parts = line.split(":**", 1)
-                            key = parts[0].replace("**", "").strip()
-                            value = parts[1].strip()
-                            if value:
-                                fields[key] = value
-                        elif line.startswith("**") and line.endswith("**"):
-                            # **Key** on its own line — value on next non-empty line
-                            pass  # handled below
-                # Fallback: just show first 3 meaningful paragraphs
-                if not fields:
-                    parts = [p.strip() for p in decision.split("\n\n") if len(p.strip()) > 20]
-                    for i, p in enumerate(parts[:5]):
-                        key = p.split("\n")[0].replace("**", "").strip()[:60]
-                        value = "\n".join(p.split("\n")[1:]).strip()[:300] if "\n" in p else p
-                        if len(value) > 10:
-                            fields[key] = value
-                if fields:
-                    rows = "".join(
-                        f'<tr><td style="padding:8px 16px;color:#6b7280;font-weight:600;white-space:nowrap;border-bottom:1px solid #f1f5f9;vertical-align:top">{k}</td>'
-                        f'<td style="padding:8px 16px;color:#111827;border-bottom:1px solid #f1f5f9">{v}</td></tr>'
-                        for k, v in fields.items()
-                    )
-                    st.markdown(f'<table style="width:100%;border-collapse:collapse;font-size:0.88rem">{rows}</table>', unsafe_allow_html=True)
+                # Extract Executive Summary and Investment Thesis from markdown
+                exec_summary = ""
+                invest_thesis = ""
+                for line in decision.split("\n"):
+                    line = line.strip()
+                    if line.startswith("**Executive Summary"):
+                        parts = line.split(":**", 1)
+                        exec_summary = parts[1].strip() if len(parts) == 2 else ""
+                    elif line.startswith("**Investment Thesis"):
+                        parts = line.split(":**", 1)
+                        invest_thesis = parts[1].strip() if len(parts) == 2 else ""
+                if exec_summary or invest_thesis:
+                    html = '<div class="dash-panel"><h4>Decision Rationale</h4>'
+                    if exec_summary:
+                        html += f'<p style="color:#374151;font-size:0.9rem;line-height:1.6;margin:8px 0"><strong style="color:#111827">Executive Summary:</strong> {exec_summary}</p>'
+                    if invest_thesis:
+                        html += f'<p style="color:#374151;font-size:0.9rem;line-height:1.6;margin:8px 0"><strong style="color:#111827">Investment Thesis:</strong> {invest_thesis}</p>'
+                    html += '</div>'
+                    st.markdown(html, unsafe_allow_html=True)
                 else:
-                    st.markdown(decision)
+                    # Fallback: show first 500 chars of clean text
+                    clean = " ".join(l.strip() for l in decision.split("\n") if l.strip() and not l.strip().startswith("#") and not l.strip().startswith("**Rating"))
+                    if clean:
+                        st.markdown(f'<div class="dash-panel"><h4>Decision Rationale</h4><p style="color:#374151;font-size:0.9rem;line-height:1.6">{clean[:500]}</p></div>', unsafe_allow_html=True)
+
 
             st.markdown("#### Analyst Summaries")
             sc = st.columns(3)

@@ -33,21 +33,37 @@ _shared_refcount = 0
 
 
 def _get_shared_ib(host: str = _DEFAULT_HOST, port: int = _DEFAULT_PORT):
-    """Get or create a SINGLE persistent IB connection. Thread-safe."""
+    """Get or create a SINGLE persistent IB connection. Thread-safe.
+    Auto-reconnects if the connection was dropped."""
     global _shared_ib, _shared_refcount
     with _shared_lock:
-        if _shared_ib is None or not _shared_ib.isConnected():
+        # Check if existing connection is still alive
+        if _shared_ib is not None:
             try:
-                from ib_insync import IB
-                _shared_ib = IB()
-                _shared_ib.connect(host, port, clientId=_CLIENT_ID, timeout=8)
-                logger.info("IB persistent connection established (clientId=%d)", _CLIENT_ID)
-            except Exception as exc:
-                logger.debug("IB connection failed: %s", exc)
-                _shared_ib = None
-                return None
-        _shared_refcount += 1
-        return _shared_ib
+                if _shared_ib.isConnected():
+                    _shared_refcount += 1
+                    return _shared_ib
+            except Exception:
+                pass  # Connection dead — reconnect below
+            # Clean up dead connection
+            try:
+                _shared_ib.disconnect()
+            except Exception:
+                pass
+            _shared_ib = None
+
+        # Create fresh connection
+        try:
+            from ib_insync import IB
+            _shared_ib = IB()
+            _shared_ib.connect(host, port, clientId=_CLIENT_ID, timeout=8)
+            logger.info("IB persistent connection established (clientId=%d)", _CLIENT_ID)
+            _shared_refcount += 1
+            return _shared_ib
+        except Exception as exc:
+            logger.debug("IB connection failed: %s", exc)
+            _shared_ib = None
+            return None
 
 
 def _release_shared_ib():

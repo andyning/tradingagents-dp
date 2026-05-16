@@ -193,6 +193,29 @@ def for_fundamentals_analyst(state: dict[str, Any]) -> str:
             change_pct = pd.to_numeric(last.get("change_pct", float("nan")), errors="coerce")
             volume = pd.to_numeric(last.get("volume", 0), errors="coerce")
 
+            # If PE/PB missing from K-line (IB, Futu K-line), try Futu snapshot
+            if (pd.isna(pe) or pd.isna(pb)) and market in ("a_stock", "hk_stock", "us_stock"):
+                try:
+                    from futu import OpenQuoteContext
+                    futu_sym = symbol.strip().upper()
+                    if market == "a_stock":
+                        futu_sym = f"{'SH' if futu_sym.startswith('6') else 'SZ'}.{futu_sym}"
+                    elif market == "hk_stock":
+                        futu_sym = f"HK.{futu_sym:0>5}"
+                    else:
+                        futu_sym = f"US.{futu_sym}"
+                    ctx = OpenQuoteContext(host="127.0.0.1", port=11111)
+                    ret, snap = ctx.get_market_snapshot([futu_sym])
+                    ctx.close()
+                    if ret == 0 and snap is not None and not snap.empty:
+                        row = snap.iloc[0]
+                        if pd.isna(pe):
+                            pe = pd.to_numeric(row.get("pe_ttm_ratio", float("nan")), errors="coerce")
+                        if pd.isna(pb):
+                            pb = pd.to_numeric(row.get("pb_ratio", float("nan")), errors="coerce")
+                except Exception:
+                    pass
+
             parts.append(f"**最新收盘价**: {close:.2f} 元" if pd.notna(close) else "")
             parts.append(f"**PE(TTM)**: {pe:.2f}" if pd.notna(pe) else "**PE(TTM)**: 暂无")
             parts.append(f"**PB**: {pb:.2f}" if pd.notna(pb) else "**PB**: 暂无")
@@ -225,11 +248,10 @@ def for_hot_money_analyst(state: dict[str, Any]) -> str:
     """Fetch capital flow, northbound, dragon tiger board."""
     symbol = state["company_of_interest"]
     market = state.get("market", "a_stock")
-    parts = ["## 真实资金流向数据 (你必须使用以下数据)\n"]
+    parts = ["## Hot Money / Capital Flow\n"]
 
     if market != "a_stock":
-        parts.append("(A股市场专属数据，当前标的不适用)")
-        return "\n".join(parts)
+        return "## Hot Money / Capital Flow\n(A-share specific — not applicable. Skip this analysis.)\n"
 
     # Fund flow
     try:
@@ -278,11 +300,10 @@ def for_lockup_analyst(state: dict[str, Any]) -> str:
     """Fetch lockup expiry and insider transactions."""
     symbol = state["company_of_interest"]
     market = state.get("market", "a_stock")
-    parts = ["## 真实解禁/增减持数据 (你必须使用以下数据)\n"]
+    parts = ["## Lockup / Insider Data\n"]
 
     if market != "a_stock":
-        parts.append("(A股市场专属数据，当前标的不适用)")
-        return "\n".join(parts)
+        return "## Lockup / Insider\n(A-share specific — not applicable. Skip this analysis.)\n"
 
     try:
         lockup = a_stock.get_lockup_expiry(symbol, months=6)

@@ -115,6 +115,16 @@ def get_cash_flow(symbol: str) -> pd.DataFrame:
     )
 
 
+def get_news(symbol: str, limit: int = 20) -> pd.DataFrame:
+    """News for US stocks via yfinance."""
+    return with_fallback(
+        symbol, "news_us",
+        sources=[("yfinance", lambda **kw: _yfinance.news(**kw))],
+        params={"symbol": symbol, "limit": limit},
+        cache_ttl_hours=2,
+    )
+
+
 def get_insider_transactions(symbol: str) -> pd.DataFrame:
     return with_fallback(
         symbol, "insider_transactions_us",

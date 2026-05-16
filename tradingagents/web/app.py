@@ -39,7 +39,7 @@ st.markdown("""<style>
     .mc .mcl { font-size: 0.68rem; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; font-weight: 500; }
     .mc .mcv { font-size: 1.25rem; font-weight: 700; color: #111827; }
     .mc .mcs { font-size: 0.78rem; margin-top: 2px; }
-    .up { color: #059669; } .down { color: #dc2626; }
+    .up { color: #dc2626; } .down { color: #059669; }
     .badge { display: inline-block; padding: 5px 20px; border-radius: 6px; font-weight: 700; font-size: .95rem; letter-spacing: .03em; }
     .badge-BUY { background: #d1fae5; color: #065f46; border: 1px solid #10b981; }
     .badge-OVERWEIGHT { background: #dbeafe; color: #1e40af; border: 1px solid #3b82f6; }
@@ -537,16 +537,7 @@ def run():
             st.session_state._running = False
             st.rerun()
 
-        # Token display (always visible)
-        st.divider()
-        p_now = get_progress()
-        st.markdown("**Token Usage**")
-        c1, c2, c3 = st.columns(3)
-        c1.markdown(f'<div class="tbox"><div class="tv">{p_now.tokens_in:,}</div><div class="tl">Input</div></div>', unsafe_allow_html=True)
-        c2.markdown(f'<div class="tbox"><div class="tv">{p_now.tokens_out:,}</div><div class="tl">Output</div></div>', unsafe_allow_html=True)
-        c3.markdown(f'<div class="tbox"><div class="tv">{p_now.tokens_total:,}</div><div class="tl">Total</div></div>', unsafe_allow_html=True)
-
-        # Report export — always visible, loads from cache if available
+        # Report export — below Clear Report
         export_data = _load_cached_result(symbol, depth) or {}
         st.download_button(
             label="Export Report (Markdown)",
@@ -555,6 +546,15 @@ def run():
             mime="text/markdown",
             use_container_width=True,
         )
+
+        # Token display (always visible)
+        st.divider()
+        p_now = get_progress()
+        st.markdown("**Token Usage**")
+        c1, c2, c3 = st.columns(3)
+        c1.markdown(f'<div class="tbox"><div class="tv">{p_now.tokens_in:,}</div><div class="tl">Input</div></div>', unsafe_allow_html=True)
+        c2.markdown(f'<div class="tbox"><div class="tv">{p_now.tokens_out:,}</div><div class="tl">Output</div></div>', unsafe_allow_html=True)
+        c3.markdown(f'<div class="tbox"><div class="tv">{p_now.tokens_total:,}</div><div class="tl">Total</div></div>', unsafe_allow_html=True)
 
     # ═══ CACHE CHECK ═══
     # When user changes symbol/depth, auto-load cached result if exists
@@ -644,7 +644,7 @@ def run():
             fig.add_trace(go.Candlestick(
                 x=kdf["date"], open=kdf["open"], high=kdf["high"],
                 low=kdf["low"], close=kdf["close"],
-                name="Price", increasing_line_color="#059669", decreasing_line_color="#dc2626",
+                name="Price", increasing_line_color="#dc2626", decreasing_line_color="#059669",
             ))
             fig.add_trace(go.Bar(
                 x=kdf["date"], y=kdf["volume"], name="Volume",

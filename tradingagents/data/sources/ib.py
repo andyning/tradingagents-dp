@@ -120,7 +120,7 @@ class IBSource(DataSource):
             bars = ib.reqHistoricalData(
                 contract, endDateTime="", durationStr=duration,
                 barSizeSetting=bar_size, whatToShow="TRADES",
-                useRTH=True, formatDate=1,
+                useRTH=True, formatDate=1, keepUpToDate=False,
             )
             if not bars:
                 return pd.DataFrame()

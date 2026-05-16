@@ -4,8 +4,8 @@ Requires IB Gateway or TWS running locally with API enabled.
 Paper trading port: 4002 (Gateway) / 7497 (TWS).
 Live trading port: 4001 (Gateway) / 7496 (TWS).
 
-Provides: K-line (daily/weekly/monthly), real-time snapshot, financial statements.
-Markets: A-shares (via Stock Connect), HK, US, and global.
+Uses a SINGLE persistent connection per session — does NOT open/close
+per request. Connection is lazily initialized on first use.
 """
 
 from __future__ import annotations
@@ -24,6 +24,37 @@ logger = get_logger(__name__)
 # Default paper trading port for IB Gateway
 _DEFAULT_HOST = "127.0.0.1"
 _DEFAULT_PORT = 4002
+_CLIENT_ID = 99  # Fixed client ID — single stable connection
+
+# Shared persistent connection
+_shared_ib = None
+_shared_lock = threading.Lock()
+_shared_refcount = 0
+
+
+def _get_shared_ib(host: str = _DEFAULT_HOST, port: int = _DEFAULT_PORT):
+    """Get or create a SINGLE persistent IB connection. Thread-safe."""
+    global _shared_ib, _shared_refcount
+    with _shared_lock:
+        if _shared_ib is None or not _shared_ib.isConnected():
+            try:
+                from ib_insync import IB
+                _shared_ib = IB()
+                _shared_ib.connect(host, port, clientId=_CLIENT_ID, timeout=8)
+                logger.info("IB persistent connection established (clientId=%d)", _CLIENT_ID)
+            except Exception as exc:
+                logger.debug("IB connection failed: %s", exc)
+                _shared_ib = None
+                return None
+        _shared_refcount += 1
+        return _shared_ib
+
+
+def _release_shared_ib():
+    """Release reference. Disconnect only on app shutdown."""
+    global _shared_ib, _shared_refcount
+    with _shared_lock:
+        _shared_refcount = max(0, _shared_refcount - 1)
 
 # Contract mapping per market
 def _ib_contract(symbol: str, market: str):
@@ -52,11 +83,10 @@ _BAR_SIZE = {"daily": "1 day", "weekly": "1 week", "monthly": "1 month"}
 
 
 class IBSource(DataSource):
-    """Interactive Brokers data adapter.
+    """Interactive Brokers data adapter — uses persistent shared connection.
 
-    Connects on-demand, disconnects after use. Gracefully returns empty
-    DataFrames when IB Gateway is not running, allowing the fallback
-    chain to proceed to the next source.
+    Gracefully returns empty DataFrames when IB Gateway is not running,
+    allowing the fallback chain to proceed to the next source.
     """
 
     name = "ib"
@@ -66,24 +96,9 @@ class IBSource(DataSource):
         self.host = host
         self.port = port
 
-    def _connect(self):
-        """Connect to IB. Returns IB instance or None on failure."""
-        try:
-            from ib_insync import IB
-            ib = IB()
-            ib.connect(self.host, self.port, clientId=int(time.time() * 1000) % 10000, timeout=5)
-            return ib
-        except Exception as exc:
-            logger.debug("IB connection failed (%s:%d): %s", self.host, self.port, exc)
-            return None
-
-    @staticmethod
-    def _disconnect(ib):
-        try:
-            if ib and ib.isConnected():
-                ib.disconnect()
-        except Exception:
-            pass
+    def _get_ib(self):
+        """Get the shared persistent IB connection."""
+        return _get_shared_ib(self.host, self.port)
 
     # ---- K-line ----
 
@@ -109,7 +124,7 @@ class IBSource(DataSource):
         if contract is None:
             return pd.DataFrame()
 
-        ib = self._connect()
+        ib = self._get_ib()
         if ib is None:
             return pd.DataFrame()
 
@@ -148,8 +163,7 @@ class IBSource(DataSource):
         except Exception as exc:
             logger.debug("IB K-line failed for %s: %s", symbol, exc)
             return pd.DataFrame()
-        finally:
-            self._disconnect(ib)
+        # Connection stays open — shared across all IBSource instances
 
     # ---- Quote ----
 
@@ -158,7 +172,7 @@ class IBSource(DataSource):
         if contract is None:
             return pd.DataFrame()
 
-        ib = self._connect()
+        ib = self._get_ib()
         if ib is None:
             return pd.DataFrame()
 
@@ -184,8 +198,7 @@ class IBSource(DataSource):
             return df
         except Exception:
             return pd.DataFrame()
-        finally:
-            self._disconnect(ib)
+        # Connection stays open — shared across all IBSource instances
 
     # ---- Financial Summary ----
 
@@ -195,7 +208,7 @@ class IBSource(DataSource):
         if contract is None:
             return pd.DataFrame()
 
-        ib = self._connect()
+        ib = self._get_ib()
         if ib is None:
             return pd.DataFrame()
 
@@ -222,8 +235,7 @@ class IBSource(DataSource):
             return pd.DataFrame()
         except Exception:
             return pd.DataFrame()
-        finally:
-            self._disconnect(ib)
+        # Connection stays open — shared across all IBSource instances
 
     # ---- Unsupported by IB free tier / not needed ----
 
@@ -245,7 +257,7 @@ class IBSource(DataSource):
         if contract is None:
             return pd.DataFrame()
 
-        ib = self._connect()
+        ib = self._get_ib()
         if ib is None:
             return pd.DataFrame()
 
@@ -284,8 +296,7 @@ class IBSource(DataSource):
         except Exception as exc:
             logger.debug("IB news failed for %s: %s", symbol, exc)
             return pd.DataFrame()
-        finally:
-            self._disconnect(ib)
+        # Connection stays open — shared across all IBSource instances
 
     def fund_flow(self, symbol: str, days: int = 30) -> pd.DataFrame:
         return pd.DataFrame()

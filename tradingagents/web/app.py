@@ -804,7 +804,7 @@ def run():
             st.markdown('<div style="margin-top:12px"></div>', unsafe_allow_html=True)
 
             # ── Decision Summary Table ──
-            st.markdown("#### Investment Director — Decision Summary")
+            st.markdown("#### Portfolio Manager — Decision Summary")
             dec_fields = []
             key_labels = {
                 "rating": "Rating", "confidence": "Confidence",

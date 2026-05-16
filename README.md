@@ -75,7 +75,7 @@ Professional financial dashboard with:
 - **14 stock metrics**: Symbol, Name, Price, Change, PE-TTM, Forward PE, Turnover, Market Cap, Amount, Volume Ratio, Float Shares, Total Shares, Profitability, PB
 - **Interactive K-line chart**: candlestick + volume, red-up/green-down (Chinese convention)
 - **Analyst Voting Table**: 7 analysts each output `[DIRECTION]` + `[KPI]` structured line, tally shown as "Bull N · Bear M · Neutral K"
-- **Investment Director Decision Summary**: structured table from SignalProcessor (rating, confidence, risk score, reasoning, position advice, time horizon)
+- **Portfolio Manager Decision Summary**: structured table from SignalProcessor (rating, confidence, risk score, reasoning, position advice, time horizon)
 - **Multi-strategy backtest**: MA crossover, MACD signal cross, RSI mean-reversion compared side-by-side
 - **Industry PE comparison**: percentile ranking vs peer stocks
 - **Real-time progress**: per-step status with token tracking

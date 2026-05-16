@@ -597,16 +597,35 @@ def run():
 
             st.markdown('<div style="margin-top:12px"></div>', unsafe_allow_html=True)
             with st.container():
-                # Parse decision into clean table — skip Rating (already in metric card)
+                # Parse decision into clean table — handle both JSON and markdown
+                import json as _json
                 fields = {}
-                for line in decision.split("\n"):
-                    line = line.strip()
-                    if line.startswith("**") and "**:" in line:
-                        parts = line.split("**: ", 1)
-                        key = parts[0].replace("**", "").strip()
-                        val = parts[1].strip()
-                        if key.lower() != "rating" and val:
-                            fields[key] = val
+                # Format 1: JSON fallback (structured output failed)
+                if decision.strip().startswith("{"):
+                    try:
+                        data = _json.loads(decision.strip().replace("'", '"'))
+                        key_map = {
+                            "rating": "Rating", "confidence": "Confidence",
+                            "reasoning": "Reasoning", "risk_assessment": "Risk Assessment",
+                            "position_advice": "Position Advice", "time_horizon": "Time Horizon",
+                        }
+                        for k, v in data.items():
+                            if k.lower() == "rating":
+                                continue  # Skip, already in metric cards
+                            label = key_map.get(k, k.replace("_", " ").title())
+                            fields[label] = str(v) if not isinstance(v, str) else v
+                    except Exception:
+                        pass
+                # Format 2: Markdown **Key**: value
+                if not fields:
+                    for line in decision.split("\n"):
+                        line = line.strip()
+                        if line.startswith("**") and "**:" in line:
+                            parts = line.split("**: ", 1)
+                            key = parts[0].replace("**", "").strip()
+                            val = parts[1].strip()
+                            if key.lower() != "rating" and val:
+                                fields[key] = val
                 if fields:
                     rows = "".join(
                         f'<tr><td style="padding:10px 16px;color:#6b7280;font-weight:600;white-space:nowrap;border-bottom:1px solid #f1f5f9;vertical-align:top;width:160px">{k}</td>'

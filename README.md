@@ -89,13 +89,15 @@ Each analysis stores structured results (rating, confidence, KPIs) to a per-tick
 
 ### Data Sources
 
-Baostock/akshare/efinance are free with no registration. Futu requires OpenD login (no brokerage account needed) with a starting quota of 100 requests/session. yfinance is free but often rate-limited in China.
+Baostock/akshare/efinance are free with no registration. Futu requires OpenD login (no brokerage account needed) with a starting quota of 100 requests/session. IB requires a Paper or Live trading account with IB Gateway running locally. yfinance is free but often rate-limited in China.
 
 | Market | Primary | Secondary | Tertiary | Fallback |
 |--------|---------|-----------|----------|----------|
 | A-Share | Futu | Baostock | efinance | yfinance |
-| Hong Kong | Futu | akshare | efinance | yfinance |
-| US | Futu | akshare | efinance | yfinance |
+| Hong Kong | Futu | IB | akshare | efinance |
+| US | IB | Futu | akshare | efinance |
+
+IB requires [IB Gateway](https://www.interactivebrokers.com/en/trading/ibgateway-latest.php) running locally with Paper Trading account (port 4002).
 
 Market auto-detected from ticker format: 6-digit → A-share, 4-5 digit → HK, alphabetic → US. Data Sources Status panel shows real-time ON/OFF indicators.
 

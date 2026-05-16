@@ -404,15 +404,7 @@ def _check_data_sources():
 def run():
     from tradingagents.graph.progress import get_progress, STEP_LABELS
 
-    # Run health check once per session (cached, fast TCP)
-    if "_health_done" not in st.session_state:
-        st.session_state._health_done = False
-    if not st.session_state._health_done:
-        health_status = _check_data_sources()
-        for k, v in health_status.items():
-            st.session_state[f"_health_{k}"] = v
-        st.session_state._health_done = True
-    # Build health dict from session state
+    # Build health dict from session state (initial: all "?")
     health_status = {}
     for k in ("futu", "baostock", "efinance", "akshare", "yfinance"):
         health_status[k] = st.session_state.get(f"_health_{k}", "?")
@@ -473,9 +465,17 @@ def run():
         _save_session(symbol, market, depth, data_window)
         st.divider()
 
-        # Data Sources Status — background thread updates; tight spacing
+        # Data Sources Status — lazy, updates on use or manual refresh
         st.divider()
-        st.markdown("**Data Sources Status**")
+        hcol1, hcol2 = st.columns([4, 1])
+        with hcol1:
+            st.markdown("**Data Sources Status**")
+        with hcol2:
+            if st.button("Refresh", key="health_refresh", help="Re-check all data sources"):
+                result = _check_data_sources()
+                for k, v in result.items():
+                    st.session_state[f"_health_{k}"] = v
+                st.rerun()
         all_sources = [
             ("Futu", "futu"), ("Baostock", "baostock"),
             ("akshare", "akshare"), ("efinance", "efinance"), ("yfinance", "yfinance"),

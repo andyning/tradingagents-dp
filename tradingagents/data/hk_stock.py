@@ -42,6 +42,19 @@ def get_kline_daily(
     )
 
 
+def get_news(symbol: str, limit: int = 20) -> pd.DataFrame:
+    """News for HK stocks via IB → yfinance."""
+    return with_fallback(
+        symbol, "news_hk",
+        sources=[
+            ("ib", lambda **kw: _ib.news(**kw)),
+            ("yfinance", lambda **kw: _yfinance.news(**kw)),
+        ],
+        params={"symbol": symbol, "limit": limit},
+        cache_ttl_hours=2,
+    )
+
+
 def get_quote(symbol: str) -> pd.DataFrame:
     return with_fallback(
         symbol, "quote_hk",

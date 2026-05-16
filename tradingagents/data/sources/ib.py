@@ -240,7 +240,52 @@ class IBSource(DataSource):
         return pd.DataFrame()
 
     def news(self, symbol: str, limit: int = 20) -> pd.DataFrame:
-        return pd.DataFrame()
+        """Fetch recent news headlines via IB (Dow Jones, Briefing.com)."""
+        contract = _ib_contract(symbol, self.market)
+        if contract is None:
+            return pd.DataFrame()
+
+        ib = self._connect()
+        if ib is None:
+            return pd.DataFrame()
+
+        try:
+            from datetime import datetime, timedelta
+            # Qualify contract to get conId
+            ib.qualifyContracts(contract)
+            conId = contract.conId
+
+            # Use available news providers: DJ-N (Dow Jones) + BRFG (Briefing.com)
+            providers = "DJ-N+BRFG+BRFUPDN"
+
+            now = datetime.now()
+            start = (now - timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
+            end = now.strftime("%Y-%m-%d %H:%M:%S")
+
+            articles = ib.reqHistoricalNews(conId, providers, start, end, limit)
+            if not articles:
+                return pd.DataFrame()
+
+            rows = []
+            for a in articles:
+                headline = (a.headline or "").strip()
+                # Clean up IB news codes like {A:800015:L:en}
+                import re
+                headline = re.sub(r"\{[^}]+\}", "", headline).strip()
+                if headline:
+                    rows.append({
+                        "title": headline,
+                        "source": a.providerCode or "IB",
+                        "publish_time": str(a.time) if hasattr(a, "time") else "",
+                        "summary": (a.text or "")[:300] if hasattr(a, "text") else "",
+                    })
+            logger.info("[ib] news returned %d articles for %s", len(rows), symbol)
+            return pd.DataFrame(rows)
+        except Exception as exc:
+            logger.debug("IB news failed for %s: %s", symbol, exc)
+            return pd.DataFrame()
+        finally:
+            self._disconnect(ib)
 
     def fund_flow(self, symbol: str, days: int = 30) -> pd.DataFrame:
         return pd.DataFrame()

@@ -116,10 +116,13 @@ def get_cash_flow(symbol: str) -> pd.DataFrame:
 
 
 def get_news(symbol: str, limit: int = 20) -> pd.DataFrame:
-    """News for US stocks via yfinance."""
+    """News for US stocks via IB (Dow Jones) → yfinance."""
     return with_fallback(
         symbol, "news_us",
-        sources=[("yfinance", lambda **kw: _yfinance.news(**kw))],
+        sources=[
+            ("ib", lambda **kw: _ib.news(**kw)),
+            ("yfinance", lambda **kw: _yfinance.news(**kw)),
+        ],
         params={"symbol": symbol, "limit": limit},
         cache_ttl_hours=2,
     )

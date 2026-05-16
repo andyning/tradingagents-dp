@@ -169,7 +169,20 @@ class FutuSource(DataSource):
         return pd.DataFrame()
 
     def fund_flow(self, symbol: str, days: int = 30) -> pd.DataFrame:
-        return pd.DataFrame()
+        """Get capital flow data from Futu (主力资金流向)."""
+        ctx = self._get_ctx()
+        if ctx is None:
+            return pd.DataFrame()
+        try:
+            futu_sym = _futu_symbol(symbol, self.market)
+            ret, df = ctx.get_capital_flow(futu_sym)
+            if ret != 0 or df is None or df.empty:
+                return pd.DataFrame()
+            df = df.tail(days).copy()
+            df["symbol"] = symbol
+            return df
+        except Exception:
+            return pd.DataFrame()
 
     def northbound_flow(self, days: int = 30) -> pd.DataFrame:
         return pd.DataFrame()

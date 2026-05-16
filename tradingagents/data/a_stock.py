@@ -222,6 +222,7 @@ def get_fund_flow(symbol: str, days: int = 30) -> pd.DataFrame:
     return with_fallback(
         symbol, "fund_flow",
         sources=[
+            ("futu", lambda **kw: _futu.fund_flow(**kw)),
             ("efinance", lambda **kw: _efinance.fund_flow(**kw)),
             ("akshare", lambda **kw: _akshare.fund_flow(**kw)),
         ],

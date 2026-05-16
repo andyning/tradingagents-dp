@@ -203,10 +203,13 @@ def quality_gate_node(state: dict[str, Any]) -> dict[str, Any]:
     llm_grades = {}
     try:
         review_parts = [
-            "You are a quality assurance reviewer. Grade each analyst report below on three dimensions:",
-            "- **Data Completeness** (A-F): Did they use the real data provided? Fabricated data = F.",
-            "- **Analysis Depth** (A-F): Surface-level summary vs. insightful, specific analysis.",
-            "- **Actionability** (A-F): Can a trader act on this? Specific numbers/levels = A.",
+            "You are a quality assurance reviewer. Grade each analyst report below on three dimensions.",
+            "",
+            "🚨 IRON RULE: If any analyst report contains numbers, statistics, or data points NOT present in the provided data, mark COMPLETENESS = F. Fabrication is the most serious violation — one fabricated number invalidates the entire report. Analysts must only reference data explicitly provided to them.",
+            "",
+            "- **Data Completeness** (A-F): Did they use ONLY the real data provided? Any fabricated data point = automatic F.",
+            "- **Analysis Depth** (A-F): Surface-level summary vs. insightful, specific analysis anchored in real data.",
+            "- **Actionability** (A-F): Can a trader act on this? Specific numbers/levels = A. Vague statements = C or lower.",
             "",
             "Output format (one line per analyst):",
             "ANALYST | COMPLETENESS | DEPTH | ACTIONABILITY | 1-sentence justification",

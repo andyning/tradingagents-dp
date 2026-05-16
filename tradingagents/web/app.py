@@ -854,53 +854,96 @@ def run():
                 if clean:
                     st.markdown(f'<table style="width:100%;border-collapse:collapse;margin-bottom:12px"><tr><td style="padding:10px 16px;color:#6b7280;font-weight:600;white-space:nowrap;border-bottom:1px solid #f1f5f9;vertical-align:top;width:160px">Summary</td><td style="padding:10px 16px;color:#111827;border-bottom:1px solid #f1f5f9;font-size:0.88rem;line-height:1.55">{clean[:600]}</td></tr></table>', unsafe_allow_html=True)
 
-            # ── 7 Analysts Votes ──
-            st.markdown("#### 7-Analysts Voting Summary")
+            # ── 7-Analyst Reports ──
+            st.markdown("#### 7-Analyst Reports")
             import re as _re
-            analyst_labels = [
+            analyst_reports = [
                 ("Market/Tech 技术分析", "market_report"), ("Sentiment 舆情分析", "sentiment_report"),
                 ("News 新闻分析", "news_report"), ("Fundamentals 基本面分析", "fundamentals_report"),
                 ("Policy 政策分析", "policy_report"), ("Hot Money 资金分析", "hot_money_report"),
                 ("Lockup 解禁分析", "lockup_report"),
             ]
-            votes = []
-            dir_colors = {"看多": "#059669", "看空": "#dc2626", "中性": "#6b7280", "放弃": "#9ca3af"}
-            for label, key in analyst_labels:
+            report_rows = ""
+            for label, key in analyst_reports:
                 content = state.get(key, "") if isinstance(state, dict) else ""
-                direction = "—"
-                kpi = "—"
+                # Extract first meaningful sentence after the [DIRECTION] line
+                finding = "—"
                 if content:
-                    m = _re.search(r'\[DIRECTION\]\s*:\s*(.+?)\s*\|', content)
-                    if m:
-                        direction = m.group(1).strip()
-                    m2 = _re.search(r'\[KPI\]\s*:\s*(.+?)$', content, _re.MULTILINE)
-                    if m2:
-                        kpi = m2.group(1).strip()[:120]
-                votes.append((label, direction, kpi))
-
-            rows_html = ""
-            bull = sum(1 for _, d, _ in votes if d == "看多")
-            bear = sum(1 for _, d, _ in votes if d == "看空")
-            neutral = sum(1 for _, d, _ in votes if d in ("中性", "放弃", "—"))
-            for label, d, kpi in votes:
-                color = dir_colors.get(d, "#9ca3af")
-                kpi_display = kpi if kpi and kpi != "—" else "—"
-                rows_html += (
+                    lines = content.split("\n")
+                    for line in lines:
+                        clean = line.strip().lstrip("#-* ").strip()
+                        if clean and len(clean) > 25 and not clean.startswith("[DIRECTION]") and not clean.startswith("[KPI]"):
+                            finding = clean[:180] + ("…" if len(clean) > 180 else "")
+                            break
+                report_rows += (
                     f'<tr>'
-                    f'<td style="padding:8px 12px;color:#374151;font-size:0.85rem;font-weight:600;border-bottom:1px solid #f1f5f9;white-space:nowrap">{label}</td>'
-                    f'<td style="padding:8px 12px;color:{color};font-weight:700;font-size:0.85rem;border-bottom:1px solid #f1f5f9;white-space:nowrap">{d}</td>'
-                    f'<td style="padding:8px 12px;color:#6b7280;font-size:0.82rem;border-bottom:1px solid #f1f5f9">{kpi_display}</td>'
+                    f'<td style="padding:8px 12px;color:#374151;font-size:0.82rem;font-weight:600;border-bottom:1px solid #f1f5f9;white-space:nowrap;vertical-align:top;width:150px">{label}</td>'
+                    f'<td style="padding:8px 12px;color:#4b5563;font-size:0.8rem;border-bottom:1px solid #f1f5f9;line-height:1.4">{finding}</td>'
                     f'</tr>'
                 )
-            tally = f"Bull {bull} · Bear {bear} · Neutral/Abstain {neutral}"
-            tally_color = "#059669" if bull > bear else "#dc2626" if bear > bull else "#6b7280"
             st.markdown(
-                f'<div class="dash-panel"><h4>7-Analyst Votes <span style="font-weight:400;color:{tally_color};font-size:0.85rem">({tally})</span></h4>'
-                f'<table style="width:100%;border-collapse:collapse">'
+                f'<div class="dash-panel"><table style="width:100%;border-collapse:collapse">'
                 f'<tr><th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:0.7rem;text-transform:uppercase">Analyst</th>'
-                f'<th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:0.7rem;text-transform:uppercase">Direction</th>'
-                f'<th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:0.7rem;text-transform:uppercase">Key KPIs</th></tr>'
-                f'{rows_html}</table></div>',
+                f'<th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:0.7rem;text-transform:uppercase">Key Finding</th></tr>'
+                f'{report_rows}</table></div>',
+                unsafe_allow_html=True,
+            )
+
+            # ── Decision Chain — 9 senior agents ──
+            st.markdown("#### Decision Chain")
+            chain_items = []
+            # Quality Gate
+            qg = state.get("data_quality_summary", "") if isinstance(state, dict) else ""
+            n_a = qg.count(": A") + qg.count(": B") if qg else 0
+            chain_items.append(("Quality Gate", f"Reports quality: {n_a}/7 passed"))
+
+            # Debate
+            debate = state.get("investment_debate_state", {}) if isinstance(state, dict) else {}
+            rounds = debate.get("count", 0) if isinstance(debate, dict) else 0
+            chain_items.append(("Bull vs Bear Debate", f"{rounds} rounds of adversarial debate completed"))
+
+            # Research Manager
+            invest_plan = state.get("investment_plan", "") if isinstance(state, dict) else ""
+            rm_rec = ""
+            for line in invest_plan.split("\n"):
+                if "Recommendation" in line or "推荐" in line or "Buy" in line or "Sell" in line or "Hold" in line:
+                    rm_rec = line.strip()[:100]
+                    break
+            if not rm_rec and invest_plan:
+                rm_rec = invest_plan.split("\n")[0].strip()[:100]
+            chain_items.append(("Research Manager", rm_rec or "Investment plan generated"))
+
+            # Trader
+            trader_plan = state.get("trader_investment_plan", "") if isinstance(state, dict) else ""
+            tr_action = ""
+            for line in trader_plan.split("\n"):
+                if "Action" in line or "方向" in line or "BUY" in line.upper() or "SELL" in line.upper():
+                    tr_action = line.strip()[:100]
+                    break
+            if not tr_action and trader_plan:
+                tr_action = trader_plan.split("\n")[0].strip()[:100]
+            chain_items.append(("Trader", tr_action or "Transaction plan generated"))
+
+            # Risk Debate
+            risk = state.get("risk_debate_state", {}) if isinstance(state, dict) else {}
+            risk_rounds = risk.get("count", 0) if isinstance(risk, dict) else 0
+            chain_items.append(("Risk Debate", f"3-party risk analysis: {risk_rounds} rounds"))
+
+            # Portfolio Manager — final
+            pm_rating = signal.get("action", rating) if isinstance(signal, dict) else rating
+            pm_conf = signal.get("confidence", 0) if isinstance(signal, dict) else 0
+            chain_items.append(("Portfolio Manager", f"Final: **{pm_rating}** (confidence: {pm_conf:.0%})"))
+
+            chain_rows = "".join(
+                f'<tr><td style="padding:8px 12px;color:#374151;font-size:0.82rem;font-weight:600;border-bottom:1px solid #f1f5f9;white-space:nowrap;vertical-align:top;width:170px">{k}</td>'
+                f'<td style="padding:8px 12px;color:#4b5563;font-size:0.8rem;border-bottom:1px solid #f1f5f9;line-height:1.4">{v}</td></tr>'
+                for k, v in chain_items
+            )
+            st.markdown(
+                f'<div class="dash-panel"><table style="width:100%;border-collapse:collapse">'
+                f'<tr><th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:0.7rem;text-transform:uppercase">Agent</th>'
+                f'<th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:0.7rem;text-transform:uppercase">Decision / Output</th></tr>'
+                f'{chain_rows}</table></div>',
                 unsafe_allow_html=True,
             )
 

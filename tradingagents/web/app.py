@@ -353,32 +353,81 @@ def _build_export_report(state: dict, symbol: str, trade_date: str, market: str,
     return "\n".join(sections)
 
 
-@st.cache_resource(show_spinner=False)
-def _check_data_sources():
-    """Run health checks once per session. Returns a dict of source->status."""
-    result = {}
-    tests = [
-        ("futu", lambda: (__import__("futu").OpenQuoteContext("127.0.0.1", 11111).close(), True)[1]),
-        ("baostock", lambda: (bs:=__import__("baostock"), bs.login(), bs.logout(), True)[3]),
-        ("efinance", lambda: __import__("efinance").stock.get_base_info("600519") is not None),
-        ("akshare", lambda: __import__("akshare").stock_zh_a_spot() is not None),
-        ("yfinance", lambda: __import__("yfinance").Ticker("AAPL").history(period="1d") is not None),
-    ]
-    for key, fn in tests:
-        try:
-            fn()
-            result[key] = "OK"
-        except Exception:
-            result[key] = "DOWN"
-    return result
+# Module-level health status (updated by background thread, read by UI)
+import time as _time
+_health_status = {"futu": "?", "baostock": "?", "akshare": "?", "efinance": "?", "yfinance": "?"}
+_health_checked = False
+_health_lock = threading.Lock()
+
+
+def _get_health_status():
+    with _health_lock:
+        return dict(_health_status)
+
+
+def _bg_health_check():
+    global _health_status, _health_checked
+    if _health_checked:
+        return
+    _health_checked = True
+
+    def _set(k, v):
+        with _health_lock:
+            _health_status[k] = v
+
+    # Futu
+    try:
+        from futu import OpenQuoteContext
+        ctx = OpenQuoteContext(host="127.0.0.1", port=11111)
+        ctx.close()
+        _set("futu", "OK")
+    except Exception:
+        _set("futu", "DOWN")
+
+    # Baostock
+    try:
+        import baostock as bs
+        lg = bs.login()
+        _set("baostock", "OK" if lg.error_code == "0" else "DOWN")
+        bs.logout()
+    except Exception:
+        _set("baostock", "DOWN")
+
+    # efinance
+    try:
+        import socket
+        s = socket.socket(); s.settimeout(3)
+        s.connect(("push2.eastmoney.com", 443)); s.close()
+        _set("efinance", "OK")
+    except Exception:
+        _set("efinance", "DOWN")
+
+    # akshare
+    try:
+        import requests
+        r = requests.get("https://push2.eastmoney.com/api/qt/stock/get", timeout=3,
+                        headers={"User-Agent": "Mozilla/5.0"})
+        _set("akshare", "OK" if r.status_code == 200 else "DOWN")
+    except Exception:
+        _set("akshare", "DOWN")
+
+    # yfinance
+    try:
+        import socket
+        s = socket.socket(); s.settimeout(3)
+        s.connect(("query1.finance.yahoo.com", 443)); s.close()
+        _set("yfinance", "OK")
+    except Exception:
+        _set("yfinance", "DOWN")
 
 
 # ── Main ────────────────────────────────────────────────────────────────
 def run():
     from tradingagents.graph.progress import get_progress, STEP_LABELS
 
-    # Run health check once per session (cached, non-blocking after first run)
-    health_status = _check_data_sources()
+    # Launch background health check (non-blocking, updates module-level dict)
+    threading.Thread(target=_bg_health_check, daemon=True).start()
+    health_status = _get_health_status()
 
     # Init session keys
     if "_running" not in st.session_state: st.session_state._running = False
@@ -426,7 +475,7 @@ def run():
                              label_visibility="collapsed")
         st.divider()
 
-        # Data source health — compact, green=OK / red=DOWN
+        # Data Sources Status — background thread updates; tight spacing
         st.divider()
         st.markdown("**Data Sources Status**")
         all_sources = [
@@ -437,9 +486,9 @@ def run():
             status = health_status.get(key, "?")
             color = {"OK": "#059669", "?": "#6b7280", "DOWN": "#dc2626"}.get(status, "#dc2626")
             st.markdown(
-                f'<span style="display:flex;align-items:center;gap:8px;line-height:1.1;padding:0">'
-                f'<span style="font-size:1.3rem;color:{color}">●</span>'
-                f'<span style="color:rgba(255,255,255,.85);font-size:0.75rem">{label}</span>'
+                f'<span style="display:flex;align-items:center;gap:6px;line-height:1.0;margin:0;padding:0">'
+                f'<span style="font-size:1.2rem;color:{color}">●</span>'
+                f'<span style="color:rgba(255,255,255,.85);font-size:0.74rem">{label}</span>'
                 f'</span>',
                 unsafe_allow_html=True,
             )

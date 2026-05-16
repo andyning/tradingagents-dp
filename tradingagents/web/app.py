@@ -454,20 +454,24 @@ def run():
         # Data Sources Status — auto-updates when sources are accessed
         st.divider()
         st.markdown("**Data Sources Status**")
-        all_sources = [
-            ("Futu", "futu"), ("Baostock", "baostock"),
-            ("akshare", "akshare"), ("efinance", "efinance"), ("yfinance", "yfinance"),
-        ]
-        for label, key in all_sources:
+        all_sources = ["futu", "baostock", "akshare", "efinance", "yfinance"]
+        labels = {"futu": "Futu", "baostock": "Baostock", "akshare": "akshare",
+                  "efinance": "efinance", "yfinance": "yfinance"}
+        cols = st.columns(2)
+        for i, key in enumerate(all_sources):
             status = health_status.get(key, "?")
-            color = {"OK": "#059669", "?": "#6b7280", "DOWN": "#dc2626"}.get(status, "#dc2626")
-            st.markdown(
-                f'<span style="display:flex;align-items:center;gap:6px;line-height:1.0;margin:0;padding:0">'
-                f'<span style="font-size:1.2rem;color:{color}">●</span>'
-                f'<span style="color:rgba(255,255,255,.85);font-size:0.74rem">{label}</span>'
-                f'</span>',
-                unsafe_allow_html=True,
-            )
+            if status == "OK":
+                tag = '<span style="color:#059669;font-weight:600">ON</span>'
+            elif status == "DOWN":
+                tag = '<span style="color:#dc2626;font-weight:600">OFF</span>'
+            else:
+                tag = '<span style="color:#6b7280">—</span>'
+            with cols[i % 2]:
+                st.markdown(
+                    f'<span style="color:rgba(255,255,255,.85);font-size:0.74rem">{labels[key]}</span>'
+                    f'<span style="margin-left:6px">{tag}</span>',
+                    unsafe_allow_html=True,
+                )
 
         # Batch analysis
         st.divider()

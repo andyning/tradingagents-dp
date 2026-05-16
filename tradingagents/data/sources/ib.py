@@ -32,7 +32,8 @@ _task_queue: queue.Queue[tuple[Any, threading.Event]] = queue.Queue()
 
 
 def _ib_worker(host: str, port: int):
-    """Worker thread: owns the IB connection and event loop. Processes tasks from queue."""
+    """Worker thread: owns the IB connection and event loop. Processes tasks from queue.
+    Exits on shutdown signal (None task) or KeyboardInterrupt."""
     global _ib_instance
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
@@ -46,7 +47,10 @@ def _ib_worker(host: str, port: int):
         logger.info("IB worker thread started (clientId=%d)", _CLIENT_ID)
 
         while True:
-            task, done_event = _task_queue.get()
+            try:
+                task, done_event = _task_queue.get(timeout=1.0)  # Check for shutdown every 1s
+            except queue.Empty:
+                continue
             if task is None:  # Shutdown signal
                 break
             try:
@@ -67,7 +71,24 @@ def _ib_worker(host: str, port: int):
         except Exception:
             pass
         _ib_instance = None
-        loop.close()
+        try:
+            loop.stop()
+            loop.close()
+        except Exception:
+            pass
+
+
+def _shutdown_ib_worker():
+    """Send shutdown signal to the IB worker thread."""
+    global _ib_thread
+    if _ib_thread and _ib_thread.is_alive():
+        _task_queue.put((None, threading.Event()))
+        _ib_thread.join(timeout=3)
+
+
+# Register shutdown on module cleanup
+import atexit
+atexit.register(_shutdown_ib_worker)
 
 
 def _ensure_worker():

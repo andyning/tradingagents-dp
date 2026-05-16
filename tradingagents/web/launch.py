@@ -1,5 +1,7 @@
-"""Launch script for tradingagents-web — starts Streamlit, handles Ctrl+C."""
+"""Launch script for tradingagents-web — handles Ctrl+C cleanly on Windows."""
 
+import os
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -8,12 +10,33 @@ from pathlib import Path
 def main():
     app_path = Path(__file__).parent / "app.py"
     args = [sys.executable, "-m", "streamlit", "run", str(app_path), *sys.argv[1:]]
-    print(f"Starting Streamlit server... (Ctrl+C to stop)")
-    print(f"Open http://localhost:8501 in your browser")
+    print("Starting Streamlit server... (Ctrl+C to stop)")
+    print("Open http://localhost:8501 in your browser")
+
+    # Use Popen so we can terminate the child on Ctrl+C
+    proc = subprocess.Popen(args)
+
+    def _cleanup(signum=None, frame=None):
+        """Kill child process and exit cleanly."""
+        try:
+            proc.terminate()
+            try:
+                proc.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+        except Exception:
+            pass
+        print("\nStopped.")
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, _cleanup)
+    signal.signal(signal.SIGTERM, _cleanup)
+
+    # Wait for child to exit (blocking)
     try:
-        subprocess.run(args)
+        proc.wait()
     except KeyboardInterrupt:
-        print("Stopped.")
+        _cleanup()
 
 
 if __name__ == "__main__":

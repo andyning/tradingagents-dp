@@ -858,13 +858,16 @@ def run():
             st.markdown("#### 7-Analyst Reports")
             import re as _re
             analyst_reports = [
-                ("Market/Tech 技术分析", "market_report"), ("Sentiment 舆情分析", "sentiment_report"),
-                ("News 新闻分析", "news_report"), ("Fundamentals 基本面分析", "fundamentals_report"),
-                ("Policy 政策分析", "policy_report"), ("Hot Money 资金分析", "hot_money_report"),
-                ("Lockup 解禁分析", "lockup_report"),
+                ("Market/Tech 技术分析", "market_report", "K-line, Technical indicators, Price/Volume history"),
+                ("Sentiment 舆情分析", "sentiment_report", "News headlines, Market breadth, Social sentiment"),
+                ("News 新闻分析", "news_report", "Eastmoney/Sina (A-stock), IB News/Yfinance (US/HK)"),
+                ("Fundamentals 基本面分析", "fundamentals_report", "PE/PB, Financial statements, Profitability metrics"),
+                ("Policy 政策分析", "policy_report", "Policy news, Regulatory announcements, Macro data"),
+                ("Hot Money 资金分析", "hot_money_report", "Fund flow (北向资金), Capital flow, Volume analysis"),
+                ("Lockup 解禁分析", "lockup_report", "Lockup expiry data, Insider transactions, Share pledge"),
             ]
             report_rows = ""
-            for label, key in analyst_reports:
+            for label, key, data_input in analyst_reports:
                 content = state.get(key, "") if isinstance(state, dict) else ""
                 # Extract first meaningful sentence after the [DIRECTION] line
                 finding = "—"
@@ -873,17 +876,19 @@ def run():
                     for line in lines:
                         clean = line.strip().lstrip("#-* ").strip()
                         if clean and len(clean) > 25 and not clean.startswith("[DIRECTION]") and not clean.startswith("[KPI]"):
-                            finding = clean[:180] + ("…" if len(clean) > 180 else "")
+                            finding = clean[:150] + ("…" if len(clean) > 150 else "")
                             break
                 report_rows += (
                     f'<tr>'
-                    f'<td style="padding:8px 12px;color:#374151;font-size:0.82rem;font-weight:600;border-bottom:1px solid #f1f5f9;white-space:nowrap;vertical-align:top;width:150px">{label}</td>'
+                    f'<td style="padding:8px 12px;color:#374151;font-size:0.82rem;font-weight:600;border-bottom:1px solid #f1f5f9;white-space:nowrap;vertical-align:top;width:140px">{label}</td>'
+                    f'<td style="padding:8px 12px;color:#9ca3af;font-size:0.75rem;border-bottom:1px solid #f1f5f9;white-space:nowrap;vertical-align:top;width:150px">{data_input}</td>'
                     f'<td style="padding:8px 12px;color:#4b5563;font-size:0.8rem;border-bottom:1px solid #f1f5f9;line-height:1.4">{finding}</td>'
                     f'</tr>'
                 )
             st.markdown(
                 f'<div class="dash-panel"><table style="width:100%;border-collapse:collapse">'
                 f'<tr><th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:0.7rem;text-transform:uppercase">Analyst</th>'
+                f'<th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:0.7rem;text-transform:uppercase">Data Input</th>'
                 f'<th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:0.7rem;text-transform:uppercase">Key Finding</th></tr>'
                 f'{report_rows}</table></div>',
                 unsafe_allow_html=True,
@@ -895,12 +900,12 @@ def run():
             # Quality Gate
             qg = state.get("data_quality_summary", "") if isinstance(state, dict) else ""
             n_a = qg.count(": A") + qg.count(": B") if qg else 0
-            chain_items.append(("Quality Gate", f"Reports quality: {n_a}/7 passed"))
+            chain_items.append(("Quality Gate", "7 Analyst Reports", f"Reports quality: {n_a}/7 passed"))
 
             # Debate
             debate = state.get("investment_debate_state", {}) if isinstance(state, dict) else {}
             rounds = debate.get("count", 0) if isinstance(debate, dict) else 0
-            chain_items.append(("Bull vs Bear Debate", f"{rounds} rounds of adversarial debate completed"))
+            chain_items.append(("Bull vs Bear Debate", "7 Analyst Reports, Quality Gate summary", f"{rounds} rounds of adversarial debate completed"))
 
             # Research Manager
             invest_plan = state.get("investment_plan", "") if isinstance(state, dict) else ""
@@ -911,7 +916,7 @@ def run():
                     break
             if not rm_rec and invest_plan:
                 rm_rec = invest_plan.split("\n")[0].strip()[:100]
-            chain_items.append(("Research Manager", rm_rec or "Investment plan generated"))
+            chain_items.append(("Research Manager", "Bull vs Bear debate history", rm_rec or "Investment plan generated"))
 
             # Trader
             trader_plan = state.get("trader_investment_plan", "") if isinstance(state, dict) else ""
@@ -922,26 +927,28 @@ def run():
                     break
             if not tr_action and trader_plan:
                 tr_action = trader_plan.split("\n")[0].strip()[:100]
-            chain_items.append(("Trader", tr_action or "Transaction plan generated"))
+            chain_items.append(("Trader", "Research Manager's investment plan", tr_action or "Transaction plan generated"))
 
             # Risk Debate
             risk = state.get("risk_debate_state", {}) if isinstance(state, dict) else {}
             risk_rounds = risk.get("count", 0) if isinstance(risk, dict) else 0
-            chain_items.append(("Risk Debate", f"3-party risk analysis: {risk_rounds} rounds"))
+            chain_items.append(("Risk Debate", "Trader's proposal, Research Manager's plan", f"3-party risk analysis: {risk_rounds} rounds"))
 
             # Portfolio Manager — final
             pm_rating = signal.get("action", rating) if isinstance(signal, dict) else rating
             pm_conf = signal.get("confidence", 0) if isinstance(signal, dict) else 0
-            chain_items.append(("Portfolio Manager", f"Final: **{pm_rating}** (confidence: {pm_conf:.0%})"))
+            chain_items.append(("Portfolio Manager", "Risk debate, Trader's plan, Research Manager's plan", f"Final: **{pm_rating}** (confidence: {pm_conf:.0%})"))
 
             chain_rows = "".join(
-                f'<tr><td style="padding:8px 12px;color:#374151;font-size:0.82rem;font-weight:600;border-bottom:1px solid #f1f5f9;white-space:nowrap;vertical-align:top;width:170px">{k}</td>'
+                f'<tr><td style="padding:8px 12px;color:#374151;font-size:0.82rem;font-weight:600;border-bottom:1px solid #f1f5f9;white-space:nowrap;vertical-align:top;width:160px">{k}</td>'
+                f'<td style="padding:8px 12px;color:#9ca3af;font-size:0.75rem;border-bottom:1px solid #f1f5f9;white-space:nowrap;vertical-align:top;width:150px">{d}</td>'
                 f'<td style="padding:8px 12px;color:#4b5563;font-size:0.8rem;border-bottom:1px solid #f1f5f9;line-height:1.4">{v}</td></tr>'
-                for k, v in chain_items
+                for k, d, v in chain_items
             )
             st.markdown(
                 f'<div class="dash-panel"><table style="width:100%;border-collapse:collapse">'
                 f'<tr><th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:0.7rem;text-transform:uppercase">Agent</th>'
+                f'<th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:0.7rem;text-transform:uppercase">Input</th>'
                 f'<th style="text-align:left;padding:6px 12px;color:#9ca3af;font-size:0.7rem;text-transform:uppercase">Decision / Output</th></tr>'
                 f'{chain_rows}</table></div>',
                 unsafe_allow_html=True,

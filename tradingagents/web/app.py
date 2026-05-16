@@ -591,32 +591,26 @@ def run():
                     st.markdown(f'<div class="mc"><div class="mcl">Debate Rounds</div><div class="mcv">{rounds}</div><div class="mcs">Bull vs Bear</div></div>', unsafe_allow_html=True)
 
             st.markdown('<div style="margin-top:12px"></div>', unsafe_allow_html=True)
-            # Clean decision rationale — no redundant table
             with st.container():
-                # Extract Executive Summary and Investment Thesis from markdown
-                exec_summary = ""
-                invest_thesis = ""
+                # Parse decision into clean table — skip Rating (already in metric card)
+                fields = {}
                 for line in decision.split("\n"):
                     line = line.strip()
-                    if line.startswith("**Executive Summary"):
+                    if line.startswith("**") and ":**" in line:
                         parts = line.split(":**", 1)
-                        exec_summary = parts[1].strip() if len(parts) == 2 else ""
-                    elif line.startswith("**Investment Thesis"):
-                        parts = line.split(":**", 1)
-                        invest_thesis = parts[1].strip() if len(parts) == 2 else ""
-                if exec_summary or invest_thesis:
-                    html = '<div class="dash-panel"><h4>Decision Rationale</h4>'
-                    if exec_summary:
-                        html += f'<p style="color:#374151;font-size:0.9rem;line-height:1.6;margin:8px 0"><strong style="color:#111827">Executive Summary:</strong> {exec_summary}</p>'
-                    if invest_thesis:
-                        html += f'<p style="color:#374151;font-size:0.9rem;line-height:1.6;margin:8px 0"><strong style="color:#111827">Investment Thesis:</strong> {invest_thesis}</p>'
-                    html += '</div>'
-                    st.markdown(html, unsafe_allow_html=True)
+                        key = parts[0].replace("**", "").strip()
+                        val = parts[1].strip()
+                        if key.lower() != "rating" and val:
+                            fields[key] = val
+                if fields:
+                    rows = "".join(
+                        f'<tr><td style="padding:10px 16px;color:#6b7280;font-weight:600;white-space:nowrap;border-bottom:1px solid #f1f5f9;vertical-align:top;width:160px">{k}</td>'
+                        f'<td style="padding:10px 16px;color:#111827;border-bottom:1px solid #f1f5f9;font-size:0.88rem;line-height:1.55">{v}</td></tr>'
+                        for k, v in fields.items()
+                    )
+                    st.markdown(f'<div class="dash-panel"><h4>Decision Summary</h4><table style="width:100%;border-collapse:collapse">{rows}</table></div>', unsafe_allow_html=True)
                 else:
-                    # Fallback: show first 500 chars of clean text
-                    clean = " ".join(l.strip() for l in decision.split("\n") if l.strip() and not l.strip().startswith("#") and not l.strip().startswith("**Rating"))
-                    if clean:
-                        st.markdown(f'<div class="dash-panel"><h4>Decision Rationale</h4><p style="color:#374151;font-size:0.9rem;line-height:1.6">{clean[:500]}</p></div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="dash-panel"><h4>Decision Summary</h4><p style="color:#374151;font-size:0.9rem">{(decision or "")[:500]}</p></div>', unsafe_allow_html=True)
 
 
             st.markdown("#### Analyst Summaries")

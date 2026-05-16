@@ -378,7 +378,7 @@ def _build_export_report(state: dict, symbol: str, trade_date: str, market: str,
     return "\n".join(sections)
 
 
-@st.cache_resource(show_spinner="Checking data sources...")
+@st.cache_resource
 def _check_data_sources():
     """Run health checks once per session. TCP socket checks, fast."""
     result = {}
@@ -392,7 +392,7 @@ def _check_data_sources():
     for key, host, port in tests:
         try:
             import socket
-            s = socket.socket(); s.settimeout(2)
+            s = socket.socket(); s.settimeout(3)
             s.connect((host, port)); s.close()
             result[key] = "OK"
         except Exception:

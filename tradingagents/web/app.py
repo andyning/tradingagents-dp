@@ -206,7 +206,14 @@ def _enrich_stock_info(info: dict, symbol: str, market: str) -> dict:
                     eps_val = float(eps)
                     info["is_profitable"] = "盈利" if eps_val > 0 else "亏损"
                 else:
-                    info["is_profitable"] = "—"
+                    # Fallback: check PE sign
+                    pe = info.get("pe")
+                    if pe is not None and pe == pe and pe > 0:
+                        info["is_profitable"] = "盈利"
+                    elif pe is not None and pe == pe and pe < 0:
+                        info["is_profitable"] = "亏损"
+                    else:
+                        info["is_profitable"] = "—"
             except Exception:
                 info["is_profitable"] = "—"
     except Exception:
@@ -582,7 +589,14 @@ def run():
             sgn = "+" if value >= 0 else ""
             display = f"{sgn}{value:.2f}%"
         elif fmt == "pe":
-            display = f"{value:.1f}"
+            if value < 0:
+                display = "亏损"
+            elif value == 0:
+                display = "—"
+            elif value > 9999:
+                display = "亏损"
+            else:
+                display = f"{value:.1f}"
         elif fmt == "f2":
             display = f"{value:.2f}"
         elif fmt == "big":

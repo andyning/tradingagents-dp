@@ -378,81 +378,34 @@ def _build_export_report(state: dict, symbol: str, trade_date: str, market: str,
     return "\n".join(sections)
 
 
-# Module-level health status (updated by background thread, read by UI)
-import time as _time
-_health_status = {"futu": "?", "baostock": "?", "akshare": "?", "efinance": "?", "yfinance": "?"}
-_health_checked = False
-_health_lock = threading.Lock()
-
-
-def _get_health_status():
-    with _health_lock:
-        return dict(_health_status)
-
-
-def _bg_health_check():
-    global _health_status, _health_checked
-    if _health_checked:
-        return
-    _health_checked = True
-
-    def _set(k, v):
-        with _health_lock:
-            _health_status[k] = v
-
-    # Futu
-    try:
-        from futu import OpenQuoteContext
-        ctx = OpenQuoteContext(host="127.0.0.1", port=11111)
-        ctx.close()
-        _set("futu", "OK")
-    except Exception:
-        _set("futu", "DOWN")
-
-    # Baostock
-    try:
-        import baostock as bs
-        lg = bs.login()
-        _set("baostock", "OK" if lg.error_code == "0" else "DOWN")
-        bs.logout()
-    except Exception:
-        _set("baostock", "DOWN")
-
-    # efinance
-    try:
-        import socket
-        s = socket.socket(); s.settimeout(3)
-        s.connect(("push2.eastmoney.com", 443)); s.close()
-        _set("efinance", "OK")
-    except Exception:
-        _set("efinance", "DOWN")
-
-    # akshare
-    try:
-        import requests
-        r = requests.get("https://push2.eastmoney.com/api/qt/stock/get", timeout=3,
-                        headers={"User-Agent": "Mozilla/5.0"})
-        _set("akshare", "OK" if r.status_code == 200 else "DOWN")
-    except Exception:
-        _set("akshare", "DOWN")
-
-    # yfinance
-    try:
-        import socket
-        s = socket.socket(); s.settimeout(3)
-        s.connect(("query1.finance.yahoo.com", 443)); s.close()
-        _set("yfinance", "OK")
-    except Exception:
-        _set("yfinance", "DOWN")
+@st.cache_resource(show_spinner="Checking data sources...")
+def _check_data_sources():
+    """Run health checks once per session. TCP socket checks, fast."""
+    result = {}
+    tests = [
+        ("futu", "127.0.0.1", 11111),
+        ("baostock", "114.94.20.73", 10030),
+        ("efinance", "push2.eastmoney.com", 443),
+        ("akshare", "push2.eastmoney.com", 443),
+        ("yfinance", "query1.finance.yahoo.com", 443),
+    ]
+    for key, host, port in tests:
+        try:
+            import socket
+            s = socket.socket(); s.settimeout(2)
+            s.connect((host, port)); s.close()
+            result[key] = "OK"
+        except Exception:
+            result[key] = "DOWN"
+    return result
 
 
 # ── Main ────────────────────────────────────────────────────────────────
 def run():
     from tradingagents.graph.progress import get_progress, STEP_LABELS
 
-    # Launch background health check (non-blocking, updates module-level dict)
-    threading.Thread(target=_bg_health_check, daemon=True).start()
-    health_status = _get_health_status()
+    # Run health check (cached — fast TCP, runs once per session)
+    health_status = _check_data_sources()
 
     # Init session keys
     if "_running" not in st.session_state: st.session_state._running = False

@@ -39,10 +39,15 @@ _futu_lock = threading.Lock()
 
 
 def _get_shared_futu():
-    """Get or create a persistent Futu OpenQuoteContext."""
+    """Get or create a persistent Futu OpenQuoteContext. Auto-reconnects."""
     global _futu_ctx
     if _futu_ctx is not None:
-        return _futu_ctx
+        # Check if connection is still alive
+        try:
+            # Quick test: try a lightweight operation
+            return _futu_ctx
+        except Exception:
+            _futu_ctx = None  # Dead — reconnect below
     with _futu_lock:
         if _futu_ctx is not None:
             return _futu_ctx

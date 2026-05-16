@@ -135,6 +135,16 @@ def _fetch_stock_data(symbol: str, market: str, days: int = 30):
                     info[k] = float(pd.to_numeric(last[k], errors="coerce"))
                 except Exception:
                     info[k] = None
+            # Compute change_pct from close prices if missing (IB doesn't provide it)
+            if info.get("change_pct") is None or (isinstance(info["change_pct"], float) and info["change_pct"] != info["change_pct"]):
+                try:
+                    close_vals = pd.to_numeric(df["close"], errors="coerce")
+                    if len(close_vals) >= 2 and close_vals.iloc[-1] > 0:
+                        prev = close_vals.iloc[-2]
+                        curr = close_vals.iloc[-1]
+                        info["change_pct"] = float((curr - prev) / prev * 100) if prev > 0 else 0.0
+                except Exception:
+                    pass
             # Volume ratio: last 5-day avg vs 20-day avg
             try:
                 vol = pd.to_numeric(df["volume"], errors="coerce")

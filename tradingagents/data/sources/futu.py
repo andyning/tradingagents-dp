@@ -54,13 +54,19 @@ def _get_shared_futu():
             return None
         if _futu_ctx is not None:
             return _futu_ctx
+        # Pre-check: is port 11111 even open? (avoids OpenQuoteContext's endless retry)
+        import socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(0.5)
+        port_open = s.connect_ex(("127.0.0.1", 11111)) == 0
+        s.close()
+        if not port_open:
+            _FUTU_DOWN = True
+            logger.debug("Futu port 11111 not open — fast-failing")
+            return None
         try:
             from futu import OpenQuoteContext
-            import concurrent.futures
-            # Wrap in a thread with 3s timeout — OpenQuoteContext retries endlessly
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
-                fut = ex.submit(OpenQuoteContext, host="127.0.0.1", port=11111)
-                _futu_ctx = fut.result(timeout=3.0)
+            _futu_ctx = OpenQuoteContext(host="127.0.0.1", port=11111)
             logger.debug("Futu persistent connection established")
             return _futu_ctx
         except Exception:

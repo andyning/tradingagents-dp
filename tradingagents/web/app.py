@@ -1114,17 +1114,20 @@ def run():
         return
 
     import datetime as _dt
-    # Fetch with 5s timeout — don't block UI if data sources are offline
-    import concurrent.futures
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as _ex:
-        _fut = _ex.submit(_fetch_stock_data, symbol, market)
-        try:
-            info, kline_df = _fut.result(timeout=5.0)
-        except concurrent.futures.TimeoutError:
-            _fut.cancel()
-            info = {"symbol": symbol, "market": market, "name": symbol}
-            kline_df = pd.DataFrame()
-            st.toast("Data sources are slow or offline — showing cached/empty data", icon="⚠️")
+    # Fetch data with 5s timeout — never block UI
+    info = {"symbol": symbol, "market": market, "name": symbol}
+    kline_df = pd.DataFrame()
+    try:
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as _ex:
+            _fut = _ex.submit(_fetch_stock_data, symbol, market)
+            try:
+                info, kline_df = _fut.result(timeout=5.0)
+            except concurrent.futures.TimeoutError:
+                _fut.cancel()
+                st.toast("Data sources are slow or offline — showing cached/empty data", icon="⚠️")
+    except Exception:
+        st.toast("Data sources are slow or offline — showing cached/empty data", icon="⚠️")
 
     # System Health Dashboard
     _render_health_bar()

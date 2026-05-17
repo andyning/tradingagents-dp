@@ -36,6 +36,27 @@ source venv/bin/activate      # Windows: .\venv\Scripts\activate
 pip install -e .
 ```
 
+### Network / Proxy
+
+If you are behind a corporate proxy, pip may fail. Configure it before installing:
+
+```bash
+export http_proxy=http://your-proxy:port
+export https_proxy=http://your-proxy:port
+```
+
+Some domestic Chinese data sources (Baostock, akshare, efinance) do NOT work through a proxy. Exclude them after installation:
+
+```bash
+export no_proxy="localhost,127.0.0.1,baostock.com,eastmoney.com,sina.com.cn,10.*,192.168.*"
+```
+
+To speed up pip downloads in China, use a mirror:
+
+```bash
+pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+```
+
 ### Configure
 
 Edit `.env` and add your key:

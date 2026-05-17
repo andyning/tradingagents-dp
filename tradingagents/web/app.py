@@ -428,8 +428,8 @@ def _detect_market(symbol: str) -> str | None:
     # HK: 1-5 digit numeric
     if s.isdigit() and len(s) <= 5:
         return "hk_stock"
-    # US: 1-5 letters
-    if s.isalpha() and len(s) <= 5:
+    # US: 1-5 ASCII letters (isascii() excludes CJK which also passes isalpha())
+    if s.isascii() and s.isalpha() and len(s) <= 5:
         return "us_stock"
     # Explicit qualified formats
     if s.startswith(("SH.", "SZ.")):

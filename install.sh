@@ -47,8 +47,8 @@ fi
 source "$VENV_DIR/bin/activate"
 
 # ── Install package ───────────────────────────────────────────────
-echo "Installing TradingAgents..."
-pip install -e "$SCRIPT_DIR" --quiet
+echo "Installing TradingAgents (this may take a few minutes on first run)..."
+pip install -e "$SCRIPT_DIR"
 echo "[OK] Package installed."
 
 # ── Setup .env ────────────────────────────────────────────────────

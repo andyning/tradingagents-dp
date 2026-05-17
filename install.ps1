@@ -45,8 +45,8 @@ if (-not (Test-Path $venvDir)) {
 $activateScript = Join-Path $venvDir "Scripts" "Activate.ps1"
 . $activateScript
 
-Write-Host "Installing TradingAgents..." -ForegroundColor Yellow
-pip install -e "$PSScriptRoot" --quiet
+Write-Host "Installing TradingAgents (this may take a few minutes on first run)..." -ForegroundColor Yellow
+pip install -e "$PSScriptRoot"
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR: pip install failed." -ForegroundColor Red
     exit 1

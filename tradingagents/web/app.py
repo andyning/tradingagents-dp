@@ -233,6 +233,14 @@ def _run_pipeline(symbol: str, trade_date: str, market: str, depth: str, data_wi
 @st.cache_data(show_spinner=False, ttl=1800)
 def _fetch_stock_data(symbol: str, market: str, days: int = 30):
     """Return (info_dict, kline_dataframe). Single network call for both."""
+    # Fast-fail: skip fetch if all relevant sources are known DOWN
+    _relevant = {"a_stock": ["futu", "baostock", "efinance"],
+                 "hk_stock": ["futu", "efinance", "yfinance"],
+                 "us_stock": ["futu", "efinance", "yfinance"]}.get(market, [])
+    _all_down = all(st.session_state.get(f"_health_{k}", "?") == "DOWN" for k in _relevant)
+    if _all_down:
+        return {"symbol": symbol, "market": market, "name": symbol}, pd.DataFrame()
+
     from tradingagents.data import a_stock, hk_stock, us_stock
     if market == "hk_stock":
         mod = hk_stock
@@ -1116,9 +1124,16 @@ def run():
     with rcol2:
         if st.button("Refresh", key="refresh_data_btn", help="Refresh stock data & K-line chart"):
             _fetch_stock_data.clear()
-            # Reset data source health for fresh detection
+            # Reset data source health + fast-fail flags for fresh detection
             for k in ("futu", "ib", "baostock", "akshare", "efinance", "yfinance"):
                 st.session_state.pop(f"_health_{k}", None)
+            try:
+                from tradingagents.data.sources.futu import _reset_futu_flag
+                _reset_futu_flag()
+            except Exception:
+                pass
+            # Quick probe of core sources so health bar shows status
+            _probe_all_now(["futu", "baostock", "efinance"])
             st.rerun()
 
     def _mc(label, value, fmt=None, color_class=""):

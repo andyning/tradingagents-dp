@@ -36,28 +36,43 @@ def _futu_symbol(symbol: str, market: str) -> str:
 # Shared persistent Futu connection
 _futu_ctx = None
 _futu_lock = threading.Lock()
+_FUTU_DOWN = False  # Fast-fail flag: set True after first failed connect attempt
 
 
 def _get_shared_futu():
-    """Get or create a persistent Futu OpenQuoteContext. Auto-reconnects."""
-    global _futu_ctx
+    """Get or create a persistent Futu OpenQuoteContext. Fast-fails if known DOWN."""
+    global _futu_ctx, _FUTU_DOWN
+    if _FUTU_DOWN:
+        return None
     if _futu_ctx is not None:
-        # Check if connection is still alive
         try:
-            # Quick test: try a lightweight operation
             return _futu_ctx
         except Exception:
-            _futu_ctx = None  # Dead — reconnect below
+            _futu_ctx = None
     with _futu_lock:
+        if _FUTU_DOWN:
+            return None
         if _futu_ctx is not None:
             return _futu_ctx
         try:
             from futu import OpenQuoteContext
-            _futu_ctx = OpenQuoteContext(host="127.0.0.1", port=11111)
+            import concurrent.futures
+            # Wrap in a thread with 3s timeout — OpenQuoteContext retries endlessly
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+                fut = ex.submit(OpenQuoteContext, host="127.0.0.1", port=11111)
+                _futu_ctx = fut.result(timeout=3.0)
             logger.debug("Futu persistent connection established")
             return _futu_ctx
         except Exception:
+            _FUTU_DOWN = True
+            logger.debug("Futu unavailable — fast-failing future attempts")
             return None
+
+
+def _reset_futu_flag():
+    """Reset the fast-fail flag (called on Refresh)."""
+    global _FUTU_DOWN
+    _FUTU_DOWN = False
 
 
 class FutuSource(DataSource):

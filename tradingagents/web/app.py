@@ -25,8 +25,8 @@ st.markdown("""<style>
     .stApp { background: #f8fafc; font-size: 0.88rem; }
     .main .block-container { padding: 1.5rem 2rem; max-width: 1400px; }
     /* Sidebar — Mars Green */
-    section[data-testid="stSidebar"] { background: #018474; border-right: none; }
-    section[data-testid="stSidebar"] h3 { color: #fff !important; font-size: 2.56rem !important; font-weight: 800 !important; letter-spacing: .02em !important; }
+    section[data-testid="stSidebar"] { background: #018474; border-right: none; min-width: 24rem !important; }
+    section[data-testid="stSidebar"] h3 { color: #fff !important; font-size: 2.56rem !important; font-weight: 800 !important; letter-spacing: .02em !important; white-space: nowrap !important; }
     section[data-testid="stSidebar"] .stCaption { color: rgba(255,255,255,.7) !important; font-size: 1.28rem !important; }
     section[data-testid="stSidebar"] .stMarkdown,
     section[data-testid="stSidebar"] p, section[data-testid="stSidebar"] span,

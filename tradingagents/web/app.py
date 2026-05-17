@@ -600,6 +600,14 @@ def _build_pdf_report(state: dict, symbol: str, trade_date: str, market: str, de
                 Path("/Library/Fonts"),
                 Path.home() / "Library" / "Fonts",
             ])
+        else:  # Linux / WSL
+            font_dirs.extend([
+                Path("/usr/share/fonts/truetype"),
+                Path("/usr/share/fonts/opentype"),
+                Path("/usr/share/fonts"),
+                Path.home() / ".local" / "share" / "fonts",
+                Path.home() / ".fonts",
+            ])
         # Add _MEIPASS as last resort
         meipass = getattr(_sys2, "_MEIPASS", None)
         if meipass:
@@ -614,13 +622,21 @@ def _build_pdf_report(state: dict, symbol: str, trade_date: str, market: str, de
                 ("simsun.ttc","simsunb.ttf", "SimSun"),
                 ("simkai.ttf","simkai.ttf",  "KaiTi"),
             ]
-        else:  # macOS / Linux
+        elif _platform.system() == "Darwin":  # macOS
             candidates = [
                 ("PingFang.ttc",  "PingFang.ttc",  "PingFang"),
                 ("STHeiti Light.ttc", "STHeiti Light.ttc", "STHeiti"),
                 ("STHeiti Medium.ttc", "STHeiti Medium.ttc", "STHeiti"),
                 ("Heiti SC.ttc", "Heiti SC.ttc", "Heiti SC"),
                 ("NotoSansSC-Regular.otf", "NotoSansSC-Regular.otf", "NotoSansSC"),
+            ]
+        else:  # Linux / WSL
+            candidates = [
+                ("NotoSansCJK-Regular.ttc", "NotoSansCJK-Bold.ttc", "NotoSansCJK"),
+                ("NotoSansSC-Regular.otf",  "NotoSansSC-Bold.otf",  "NotoSansSC"),
+                ("wqy-zenhei.ttc",          "wqy-zenhei.ttc",       "WenQuanYi"),
+                ("wqy-microhei.ttc",        "wqy-microhei.ttc",     "WenQuanYiMicroHei"),
+                ("DroidSansFallbackFull.ttf","DroidSansFallbackFull.ttf","DroidSans"),
             ]
 
         for font_dir in font_dirs:

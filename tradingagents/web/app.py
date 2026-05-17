@@ -647,7 +647,23 @@ def _build_pdf_report(state: dict, symbol: str, trade_date: str, market: str, de
             "No CJK font found. Install a Chinese font pack."
         )
 
-    FONT_PATH, BOLD_PATH, FONT_NAME = _find_chinese_font()
+    try:
+        FONT_PATH, BOLD_PATH, FONT_NAME = _find_chinese_font()
+    except FileNotFoundError as e:
+        # Return a text-based error PDF instead of crashing the page
+        import logging; logging.getLogger(__name__).warning("PDF font not found: %s", e)
+        err_msg = (
+            "PDF Export Failed — No Chinese Font Found\n\n"
+            "Install a CJK font to enable PDF export:\n"
+            "  Ubuntu/Debian: sudo apt install fonts-noto-cjk\n"
+            "  macOS: built-in PingFang is auto-detected\n"
+            "  Windows: built-in Microsoft YaHei is auto-detected\n"
+        )
+        pdf_err = FPDF()
+        pdf_err.add_page()
+        pdf_err.set_font("Helvetica", size=10)
+        pdf_err.multi_cell(0, 6, err_msg)
+        return bytes(pdf_err.output())
 
     class PDF(FPDF):
         def header(self):

@@ -1092,22 +1092,37 @@ def run():
             bull_hist = debate.get("bull_history", "") if isinstance(debate, dict) else ""
             bear_hist = debate.get("bear_history", "") if isinstance(debate, dict) else ""
 
-            # Extract last meaningful claim from each side
-            bull_line = ""
-            for line in reversed(bull_hist.split("\n")):
-                s = line.strip()
-                if len(s) > 40 and "Bull Analyst:" not in s:
-                    bull_line = s[:120]
-                    break
-            bear_line = ""
-            for line in reversed(bear_hist.split("\n")):
-                s = line.strip()
-                if len(s) > 40 and "Bear Analyst:" not in s:
-                    bear_line = s[:120]
-                    break
+            def _extract_side_conclusion(history: str, max_len: int = 200) -> str:
+                """Extract the last substantive paragraph from one side's debate history."""
+                if not history:
+                    return ""
+                # Split on "Bull Analyst:" or "Bear Analyst:" to get individual arguments
+                # Take the last segment and find the most substantive sentence group
+                segments = history.split("\n")
+                # Collect last 5 lines that are actual content (not labels)
+                content_lines = []
+                for line in reversed(segments):
+                    s = line.strip()
+                    if not s or len(s) < 20:
+                        continue
+                    if s.startswith(("Bull Analyst:", "Bear Analyst:", "---")):
+                        if content_lines:
+                            break  # hit next argument label, stop
+                    content_lines.append(s)
+                    if len(" ".join(reversed(content_lines))) > max_len:
+                        break
+                result = " ".join(reversed(content_lines))
+                return result[:max_len] + ("…" if len(result) > max_len else "")
 
-            if bull_line and bear_line:
-                debate_output = f"Bull: {bull_line}… | Bear: {bear_line}…" if len(bull_line) >= 120 or len(bear_line) >= 120 else f"Bull: {bull_line} | Bear: {bear_line}"
+            bull_conclusion = _extract_side_conclusion(bull_hist)
+            bear_conclusion = _extract_side_conclusion(bear_hist)
+
+            if bull_conclusion and bear_conclusion:
+                debate_output = (
+                    f'<b style="color:#60a5fa">Bull</b>: {bull_conclusion}'
+                    f'<br><br>'
+                    f'<b style="color:#f87171">Bear</b>: {bear_conclusion}'
+                )
             elif rounds > 0:
                 debate_output = f"Debate completed ({rounds} rounds) — see full report for details"
             else:

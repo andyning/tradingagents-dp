@@ -634,13 +634,16 @@ def _build_pdf_report(state: dict, symbol: str, trade_date: str, market: str, de
             if not font_dir.is_dir():
                 continue
             for reg, bold, family in candidates:
-                rp = font_dir / reg
-                bp = font_dir / bold
-                if rp.exists():
-                    return str(rp), str(bp if bp.exists() else rp), family
-            # Fallback: any .ttc or .ttf in this font directory
+                # Use recursive glob to find fonts in subdirectories (e.g. opentype/noto/)
+                rp_matches = list(font_dir.rglob(reg))
+                bp_matches = list(font_dir.rglob(bold)) if bold != reg else rp_matches
+                if rp_matches:
+                    rp = rp_matches[0]
+                    bp = bp_matches[0] if bp_matches else rp
+                    return str(rp), str(bp), family
+            # Fallback: any .ttc or .ttf in this font directory tree
             for ext in (".ttc", ".ttf", ".otf"):
-                for f in font_dir.glob(f"*{ext}"):
+                for f in font_dir.rglob(f"*{ext}"):
                     return str(f), str(f), f.stem
 
         raise FileNotFoundError(

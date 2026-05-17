@@ -515,6 +515,252 @@ def _build_export_report(state: dict, symbol: str, trade_date: str, market: str,
     return "\n".join(sections)
 
 
+def _build_pdf_report(state: dict, symbol: str, trade_date: str, market: str, depth: str) -> bytes:
+    """Build a professional PDF report with all tab content, CJK support, and clean layout."""
+    from fpdf import FPDF
+
+    # Register Chinese font
+    FONT_PATH = "C:/Windows/Fonts/msyh.ttc"
+    FONT_NAME = "MicrosoftYaHei"
+
+    class PDF(FPDF):
+        def header(self):
+            if self.page_no() > 1:
+                self.set_font(FONT_NAME, size=7)
+                self.set_text_color(120, 120, 120)
+                self.cell(0, 4, f"TradingAgents  ·  {symbol}  ·  {trade_date}", align="C")
+                self.ln(6)
+
+        def footer(self):
+            self.set_y(-12)
+            self.set_font(FONT_NAME, size=7)
+            self.set_text_color(150, 150, 150)
+            self.cell(0, 8, str(self.page_no()), align="C")
+
+        def section_title(self, title: str):
+            self.set_font(FONT_NAME, size=13)
+            self.set_text_color(0, 47, 167)  # Klein Blue
+            self.set_fill_color(240, 245, 255)
+            self.cell(0, 9, f"  {title}", ln=True, fill=True)
+            self.ln(3)
+
+        def _clean(self, s: str) -> str:
+            """Strip emoji and non-renderable characters that CJK fonts lack."""
+            return s.replace("⚠", "[!]").replace("️", "").replace("✔", "[v]").replace("❌", "[x]")
+
+        def body_text(self, text: str):
+            if not text or not text.strip():
+                return
+            self.set_font(FONT_NAME, size=8.5)
+            self.set_text_color(30, 30, 30)
+            for line in text.split("\n"):
+                line = self._clean(line.strip())
+                line = line.strip()
+                if not line:
+                    self.ln(2)
+                    continue
+                self.set_x(self.l_margin)
+                if line.startswith("### "):
+                    self.set_font(FONT_NAME, size=10)
+                    self.set_text_color(0, 0, 0)
+                    self.multi_cell(0, 6, line[4:])
+                    self.ln(1)
+                    self.set_font(FONT_NAME, size=8.5)
+                    self.set_text_color(30, 30, 30)
+                elif line.startswith("## "):
+                    self.set_font(FONT_NAME, size=11)
+                    self.set_text_color(0, 47, 167)
+                    self.multi_cell(0, 7, line[3:])
+                    self.ln(1)
+                    self.set_font(FONT_NAME, size=8.5)
+                    self.set_text_color(30, 30, 30)
+                elif line.startswith("# "):
+                    self.set_font(FONT_NAME, size=13)
+                    self.set_text_color(0, 47, 167)
+                    self.multi_cell(0, 8, line[2:])
+                    self.ln(1)
+                    self.set_font(FONT_NAME, size=8.5)
+                    self.set_text_color(30, 30, 30)
+                elif line.startswith(("- ", "* ")):
+                    self.multi_cell(0, 5, "· " + line[2:])
+                elif line.startswith("**") and "**:" in line:
+                    parts = line.split("**:", 1)
+                    label = parts[0].replace("**", "").strip()
+                    val = parts[1].strip() if len(parts) > 1 else ""
+                    self.set_text_color(80, 80, 80)
+                    label_w = self.get_string_width(label + ":  ")
+                    self.cell(label_w, 5, label + ":  ")
+                    self.set_text_color(30, 30, 30)
+                    self.multi_cell(self.w - self.get_x() - self.r_margin, 5, val)
+                    self.set_text_color(30, 30, 30)
+                else:
+                    self.multi_cell(0, 5, line)
+
+        def kv_table(self, rows: list[tuple[str, str]]):
+            """Simple key-value table with colored labels."""
+            self.set_font(FONT_NAME, size=8.5)
+            for label, value in rows:
+                if self.get_y() > 250:
+                    self.add_page()
+                self.set_x(self.l_margin)
+                self.set_fill_color(255, 241, 232)
+                self.set_text_color(180, 60, 20)
+                self.cell(38, 6, f" {label}", fill=True)
+                self.set_text_color(30, 30, 30)
+                self.multi_cell(self.w - self.get_x() - self.r_margin, 6, str(value)[:300])
+                self.ln(0.5)
+
+    pdf = PDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_font(FONT_NAME, "", FONT_PATH, uni=True)
+    pdf.add_font(FONT_NAME, "B", "C:/Windows/Fonts/msyhbd.ttc", uni=True)
+
+    # ── Cover page ──
+    pdf.add_page()
+    pdf.ln(30)
+    pdf.set_font(FONT_NAME, size=28)
+    pdf.set_text_color(0, 47, 167)
+    pdf.cell(0, 14, "TradingAgents", align="C")
+    pdf.ln(16)
+    pdf.set_font(FONT_NAME, size=18)
+    pdf.set_text_color(60, 60, 60)
+    pdf.cell(0, 10, "Investment Analysis Report", align="C")
+    pdf.ln(18)
+
+    # Rating badge on cover
+    signal = state.get("structured_decision", {}) if isinstance(state, dict) else {}
+    final_rating = signal.get("action", "N/A")
+    rating_colors = {
+        "BUY": (6, 95, 70), "OVERWEIGHT": (30, 64, 175),
+        "HOLD": (146, 64, 14), "UNDERWEIGHT": (154, 52, 18), "SELL": (153, 27, 27),
+    }
+    rc, gc, bc = rating_colors.get(final_rating.upper(), (80, 80, 80))
+    pdf.set_fill_color(rc, gc, bc)
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font(FONT_NAME, size=22)
+    pdf.cell(50, 12, f" {final_rating.upper()} ", fill=True, align="C")
+    pdf.ln(16)
+
+    pdf.set_font(FONT_NAME, size=11)
+    pdf.set_text_color(80, 80, 80)
+    pdf.cell(0, 7, f"Symbol: {symbol}    |    Date: {trade_date}    |    Market: {_market_label(market)}    |    Depth: {depth}", align="C")
+    pdf.ln(12)
+
+    # Confidence & Risk Score
+    conf = signal.get("confidence", 0)
+    risk = signal.get("risk_score", 0)
+    tp = signal.get("target_price")
+    pdf.set_font(FONT_NAME, size=10)
+    pdf.set_text_color(60, 60, 60)
+    metric_text = f"Confidence: {conf:.0%}    |    Risk Score: {risk:.0%}"
+    if tp:
+        currency = "¥" if market == "a_stock" else "$"
+        metric_text += f"    |    Target Price: {currency}{tp:.2f}"
+    pdf.cell(0, 7, metric_text, align="C")
+    pdf.ln(8)
+    pdf.set_draw_color(200, 200, 200)
+    pdf.line(30, pdf.get_y(), 180, pdf.get_y())
+
+    # ── Section 1: Executive Summary ──
+    pdf.add_page()
+    pdf.section_title("1. Executive Summary — Portfolio Manager Decision")
+    final_dec = state.get("final_trade_decision", "") if isinstance(state, dict) else ""
+    if final_dec:
+        pdf.body_text(final_dec)
+    else:
+        pdf.body_text("(No decision text available)")
+
+    # ── Section 2: Decision Chain Summary ──
+    pdf.ln(4)
+    pdf.section_title("2. Decision Chain Overview")
+    qg = state.get("data_quality_summary", "") if isinstance(state, dict) else ""
+    if qg:
+        pdf.body_text(qg)
+        pdf.ln(3)
+
+    # Debate summary
+    debate_state = state.get("investment_debate_state", {}) if isinstance(state, dict) else {}
+    debate_rounds = debate_state.get("count", 0) if isinstance(debate_state, dict) else 0
+    if debate_rounds:
+        pdf.body_text(f"Bull vs Bear Debate: {debate_rounds} rounds completed.")
+    risk_state = state.get("risk_debate_state", {}) if isinstance(state, dict) else {}
+    risk_rounds = risk_state.get("count", 0) if isinstance(risk_state, dict) else 0
+    if risk_rounds:
+        pdf.body_text(f"3-Way Risk Debate: {risk_rounds} rounds completed.")
+
+    # ── Section 3: Analyst Reports ──
+    pdf.ln(4)
+    pdf.section_title("3. Analyst Reports")
+    analyst_sections = [
+        ("Market / Technical Analysis", "market_report"),
+        ("Sentiment & Social Analysis", "sentiment_report"),
+        ("News & Macro Analysis", "news_report"),
+        ("Fundamental Analysis", "fundamentals_report"),
+        ("Policy & Regulatory Analysis", "policy_report"),
+        ("Hot Money / Capital Flow", "hot_money_report"),
+        ("Lockup & Insider Analysis", "lockup_report"),
+    ]
+    for title, key in analyst_sections:
+        content = state.get(key, "") if isinstance(state, dict) else ""
+        if content and len(content.strip()) > 30:
+            pdf.ln(2)
+            pdf.set_font(FONT_NAME, size=11)
+            pdf.set_text_color(0, 47, 167)
+            pdf.cell(0, 7, title)
+            pdf.ln(8)
+            pdf.body_text(content)
+            pdf.ln(2)
+            # Thin separator
+            pdf.set_draw_color(220, 220, 220)
+            pdf.line(pdf.l_margin, pdf.get_y(), pdf.w - pdf.r_margin, pdf.get_y())
+            pdf.ln(3)
+
+    # ── Section 4: Debate Transcripts ──
+    pdf.ln(4)
+    pdf.section_title("4. Bull vs Bear Debate — Full Transcript")
+    debate_history = debate_state.get("history", "") if isinstance(debate_state, dict) else ""
+    if debate_history:
+        pdf.body_text(debate_history)
+    else:
+        pdf.body_text("(No debate transcript)")
+
+    pdf.ln(4)
+    pdf.section_title("5. Risk Debate — Full Transcript")
+    risk_history = risk_state.get("history", "") if isinstance(risk_state, dict) else ""
+    if risk_history:
+        pdf.body_text(risk_history)
+    else:
+        pdf.body_text("(No risk debate transcript)")
+
+    # ── Section 5: Decision Details ──
+    pdf.ln(4)
+    pdf.section_title("6. Investment Plan (Research Manager)")
+    invest_plan = state.get("investment_plan", "") if isinstance(state, dict) else ""
+    if invest_plan:
+        pdf.body_text(invest_plan)
+    else:
+        pdf.body_text("(No investment plan)")
+
+    pdf.ln(4)
+    pdf.section_title("7. Transaction Proposal (Trader)")
+    trader_plan = state.get("trader_investment_plan", "") if isinstance(state, dict) else ""
+    if trader_plan:
+        pdf.body_text(trader_plan)
+    else:
+        pdf.body_text("(No trader plan)")
+
+    # ── Colophon ──
+    pdf.ln(8)
+    pdf.set_draw_color(200, 200, 200)
+    pdf.line(pdf.l_margin, pdf.get_y(), pdf.w - pdf.r_margin, pdf.get_y())
+    pdf.ln(4)
+    pdf.set_font(FONT_NAME, size=7)
+    pdf.set_text_color(150, 150, 150)
+    pdf.cell(0, 5, f"Generated by TradingAgents-dp  ·  {trade_date}", align="C")
+
+    return pdf.output()
+
+
 # ── Main ────────────────────────────────────────────────────────────────
 def run():
     from tradingagents.graph.progress import get_progress, STEP_LABELS
@@ -661,15 +907,25 @@ def run():
             st.session_state._running = False
             st.rerun()
 
-        # Report export — below Clear Report
+        # Report export — PDF + Markdown
         export_data = _load_cached_result(symbol, depth) or {}
-        st.download_button(
-            label="Export Report (Markdown)",
-            data=_build_export_report(export_data, symbol, trade_date, market, depth),
-            file_name=f"{symbol}_{trade_date}_{depth}.md",
-            mime="text/markdown",
-            use_container_width=True,
-        )
+        ec1, ec2 = st.columns(2)
+        with ec1:
+            st.download_button(
+                label="Export Report (PDF)",
+                data=_build_pdf_report(export_data, symbol, trade_date, market, depth),
+                file_name=f"{symbol}_{trade_date}_{depth}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
+        with ec2:
+            st.download_button(
+                label="Export Report (Markdown)",
+                data=_build_export_report(export_data, symbol, trade_date, market, depth),
+                file_name=f"{symbol}_{trade_date}_{depth}.md",
+                mime="text/markdown",
+                use_container_width=True,
+            )
 
         # Token display (always visible)
         st.divider()

@@ -881,22 +881,9 @@ def run():
 
         st.markdown(f'<span class="badge badge-{rating}">{rating}</span>', unsafe_allow_html=True)
 
-        tab_labels = [
-            "Dashboard", "Market", "Sentiment", "News", "Fundamentals",
-            "Policy", "Hot Money", "Lockup", "Invest Plan", "Trader Plan",
-        ]
-        tabs = st.tabs(tab_labels)
-
-        report_keys = [
-            ("Market/Tech", "market_report"), ("Sentiment", "sentiment_report"),
-            ("News", "news_report"), ("Fundamentals", "fundamentals_report"),
-            ("Policy", "policy_report"), ("Hot Money", "hot_money_report"),
-            ("Lockup", "lockup_report"), ("Invest Plan", "investment_plan"),
-            ("Trader Plan", "trader_investment_plan"),
-        ]
-
-        # ── Tab 0: Dashboard ──
-        with tabs[0]:
+        # ── Dashboard Tab ──
+        dashboard_tab = st.tabs(["Dashboard"])[0]
+        with dashboard_tab:
             signal = state.get("structured_decision", {}) if isinstance(state, dict) else {}
             debate = state.get("investment_debate_state", {}) if isinstance(state, dict) else {}
             rounds = debate.get("count", 0) if isinstance(debate, dict) else 0
@@ -1024,8 +1011,8 @@ def run():
                 unsafe_allow_html=True,
             )
 
-            # ── Decision Chain — 9 senior agents ──
-            st.markdown("#### Decision Chain")
+            # ── Decision Chain Summary — 6 key agents ──
+            st.markdown("#### Decision Chain Summary")
             import re as _re2
 
             def _first_meaningful(text, max_len=160):
@@ -1234,14 +1221,78 @@ def run():
                 unsafe_allow_html=True,
             )
 
-        # ── Tabs 1-9: Reports ──
-        for tab, (label, key) in zip(tabs[1:], report_keys):
+        # ═══ Analyst Reports ═══
+        st.markdown("---")
+        st.markdown("## Analyst Reports")
+        analyst_labels = ["Market", "Sentiment", "News", "Fundamentals", "Policy", "Hot Money", "Lockup"]
+        analyst_keys = [
+            ("Market/Tech", "market_report"), ("Sentiment", "sentiment_report"),
+            ("News", "news_report"), ("Fundamentals", "fundamentals_report"),
+            ("Policy", "policy_report"), ("Hot Money", "hot_money_report"),
+            ("Lockup", "lockup_report"),
+        ]
+        analyst_tabs = st.tabs(analyst_labels)
+        for tab, (label, key) in zip(analyst_tabs, analyst_keys):
             with tab:
                 content = state.get(key, "") if isinstance(state, dict) else ""
                 if content:
                     st.markdown(content)
                 else:
-                    st.info(f"No {label} report generated.")
+                    st.info(f"No **{label}** report generated.")
+
+        # ═══ Decision Chain ═══
+        st.markdown("---")
+        st.markdown("## Decision Chain")
+        decision_labels = ["Invest Plan", "Trader Plan", "Debate", "Risk Debate", "PM Decision"]
+        decision_tabs = st.tabs(decision_labels)
+
+        # ── Invest Plan ──
+        with decision_tabs[0]:
+            content = state.get("investment_plan", "") if isinstance(state, dict) else ""
+            if content:
+                st.markdown(content)
+            else:
+                st.info("No investment plan generated.")
+
+        # ── Trader Plan ──
+        with decision_tabs[1]:
+            content = state.get("trader_investment_plan", "") if isinstance(state, dict) else ""
+            if content:
+                st.markdown(content)
+            else:
+                st.info("No trader plan generated.")
+
+        # ── Debate (Bull vs Bear full transcript) ──
+        with decision_tabs[2]:
+            debate_state = state.get("investment_debate_state", {}) if isinstance(state, dict) else {}
+            debate_history = debate_state.get("history", "") if isinstance(debate_state, dict) else ""
+            debate_rounds = debate_state.get("count", 0) if isinstance(debate_state, dict) else 0
+            if debate_history:
+                st.caption(f"**{debate_rounds} rounds** of adversarial debate between Bull and Bear researchers")
+                st.markdown("---")
+                st.markdown(debate_history)
+            else:
+                st.info("No debate transcript available.")
+
+        # ── Risk Debate (3-way full transcript) ──
+        with decision_tabs[3]:
+            risk_state = state.get("risk_debate_state", {}) if isinstance(state, dict) else {}
+            risk_history = risk_state.get("history", "") if isinstance(risk_state, dict) else ""
+            risk_rounds = risk_state.get("count", 0) if isinstance(risk_state, dict) else 0
+            if risk_history:
+                st.caption(f"**{risk_rounds} rounds** of 3-way risk debate (Aggressive · Conservative · Neutral)")
+                st.markdown("---")
+                st.markdown(risk_history)
+            else:
+                st.info("No risk debate transcript available.")
+
+        # ── PM Decision (full Portfolio Manager report) ──
+        with decision_tabs[4]:
+            content = state.get("final_trade_decision", "") if isinstance(state, dict) else ""
+            if content:
+                st.markdown(content)
+            else:
+                st.info("No portfolio manager decision available.")
 
     # ═══ STATE: BATCH PROCESSING ═══
     if not st.session_state._running and st.session_state._batch_queue and not st.session_state._batch_running:

@@ -605,14 +605,14 @@ def run():
         for i, key in enumerate(all_sources):
             status = health_status.get(key, "?")
             if status == "OK":
-                tag = '<span style="color:#059669;font-weight:600">ON</span>'
+                color = "#059669"; tag = '<span style="color:#059669;font-weight:600">ON</span>'
             elif status == "DOWN":
-                tag = '<span style="color:#dc2626;font-weight:600">OFF</span>'
+                color = "#dc2626"; tag = '<span style="color:#dc2626;font-weight:600">OFF</span>'
             else:
-                tag = '<span style="color:#6b7280">—</span>'
+                color = "#6b7280"; tag = '<span style="color:#6b7280">—</span>'
             with cols[i % 2]:
                 st.markdown(
-                    f'<span style="color:rgba(255,255,255,.85);font-size:1.18rem">{labels[key]}</span>'
+                    f'<span style="color:{color};font-size:1.18rem;font-weight:600">{labels[key]}</span>'
                     f'<span style="margin-left:6px">{tag}</span>',
                     unsafe_allow_html=True,
                 )

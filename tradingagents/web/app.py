@@ -92,7 +92,7 @@ st.markdown("""<style>
     header, footer, #MainMenu, [data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecoration"], [data-testid="stStatusWidget"] { display: none !important; }
 </style>""", unsafe_allow_html=True)
 
-# ── Data source probes ──────────────────────────────────────────────────
+# ── Data source probes (single-threaded, each has internal timeout) ────
 
 def _probe_futu():
     try:
@@ -133,6 +133,74 @@ def _probe_efinance():
         return False
 
 
+def _probe_llm():
+    """Probe DeepSeek API — quick connectivity check with 3s timeout."""
+    try:
+        from tradingagents.config import get_settings
+        settings = get_settings()
+        key = settings.deepseek_api_key
+        if not key:
+            return False
+        import openai
+        client = openai.OpenAI(api_key=key, base_url=settings.llm_base_url, timeout=3)
+        client.chat.completions.create(
+            model=settings.quick_think_model,
+            messages=[{"role": "user", "content": "ping"}],
+            max_tokens=1,
+        )
+        return True
+    except Exception:
+        return False
+
+
+# ── Health helpers ──────────────────────────────────────────────────────
+
+HEALTH_HINTS = {
+    "llm":       "Check DEEPSEEK_API_KEY in .env file and network connectivity.",
+    "futu":      "Launch Futu OpenD (free download from futunn.com). It runs in system tray.",
+    "ib":        "Start IB Gateway and log in to your Interactive Brokers account.",
+    "baostock":  "Check internet connection. Baostock requires no registration.",
+    "efinance":  "Check internet connection. Efinance requires no registration.",
+    "akshare":   "Check internet connection. akshare may be blocked by firewall.",
+    "yfinance":  "Yahoo Finance may be blocked in mainland China. Try VPN.",
+}
+
+HEALTH_CATEGORIES = {
+    "LLM":        ["llm"],
+    "A-Stock":    ["futu", "baostock", "efinance", "akshare"],
+    "US/HK":      ["ib", "yfinance"],
+}
+
+def _update_health(key: str, ok: bool):
+    """Thread-safe update of a single health status."""
+    st.session_state[f"_health_{key}"] = "OK" if ok else "DOWN"
+
+def _probe_all_now(keys: list[str] | None = None):
+    """Probe multiple sources concurrently with a 5s overall timeout.
+    If keys is None, probes all known sources."""
+    if keys is None:
+        keys = ["llm", "futu", "ib", "baostock", "efinance"]
+    probes_map = {"llm": _probe_llm, "futu": _probe_futu, "ib": _probe_ib,
+                  "baostock": _probe_baostock, "efinance": _probe_efinance}
+    import concurrent.futures
+    results = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(keys)) as ex:
+        futures = {ex.submit(probes_map[k]): k for k in keys if k in probes_map}
+        for fut in concurrent.futures.as_completed(futures, timeout=5):
+            key = futures[fut]
+            try:
+                results[key] = fut.result(timeout=0.1)
+            except Exception:
+                results[key] = False
+        # Any keys that didn't complete within 5s → mark DOWN
+        for fut, key in list(futures.items()):
+            if key not in results:
+                results[key] = False
+                fut.cancel()
+    for key, ok in results.items():
+        _update_health(key, ok)
+
+
 # ── Initialization — probe data sources on first load ───────────────────
 def _init_data_sources():
     """Probe all data sources and show progress. Runs once per session."""
@@ -146,26 +214,23 @@ def _init_data_sources():
         status_lines = st.empty()
 
         sources = [
-            ("Futu (A/HK/US K-line, PE/PB, Fund Flow)", "futu", _probe_futu),
-            ("Baostock (A-stock K-line, Financials)", "baostock", _probe_baostock),
-            ("efinance (Multi-market Quotes)", "efinance", _probe_efinance),
-            ("IB (US/HK Institutional Data)", "ib", _probe_ib),
+            ("LLM (DeepSeek API)", "llm"),
+            ("Futu (A/HK/US K-line, PE/PB)", "futu"),
+            ("Baostock (A-stock K-line, Financials)", "baostock"),
+            ("efinance (Multi-market Quotes)", "efinance"),
+            ("IB (US/HK Institutional Data)", "ib"),
         ]
+        # Probe all concurrently (max 5s total)
+        progress_bar.progress(0.3, "Probing all data sources concurrently...")
+        _probe_all_now([k for _, k in sources])
         lines = []
-        for i, (label, key, probe_fn) in enumerate(sources):
-            progress_bar.progress((i + 0.5) / len(sources), f"Probing {label.split()[0]}...")
-            try:
-                ok = probe_fn()
-                st.session_state[f"_health_{key}"] = "OK" if ok else "DOWN"
-                icon = "ON" if ok else "OFF"
-                color = "#059669" if ok else "#dc2626"
-                lines.append(f'<span style="color:{color};font-weight:600">{icon}</span>  {label}')
-            except Exception:
-                st.session_state[f"_health_{key}"] = "DOWN"
-                lines.append(f'<span style="color:#dc2626;font-weight:600">OFF</span>  {label}')
-            status_lines.markdown("<br>".join(lines), unsafe_allow_html=True)
-            progress_bar.progress((i + 1) / len(sources), f"Done: {label.split()[0]}")
-
+        for i, (label, key) in enumerate(sources):
+            status = st.session_state.get(f"_health_{key}", "?")
+            ok = status == "OK"
+            icon = "ON" if ok else "OFF"
+            color = "#059669" if ok else "#dc2626"
+            lines.append(f'<span style="color:{color};font-weight:600">{icon}</span>  {label}')
+        status_lines.markdown("<br>".join(lines), unsafe_allow_html=True)
         progress_bar.progress(1.0, "Initialization complete")
         time.sleep(0.3)
 
@@ -197,13 +262,11 @@ def _run_pipeline(symbol: str, trade_date: str, market: str, depth: str, data_wi
 @st.cache_data(show_spinner=False, ttl=1800)
 def _fetch_stock_data(symbol: str, market: str, days: int = 30):
     """Return (info_dict, kline_dataframe). Single network call for both."""
-    # Update source health for still-unknown sources
-    for key, probe_fn in [("futu", _probe_futu), ("ib", _probe_ib), ("baostock", _probe_baostock), ("efinance", _probe_efinance)]:
-        if st.session_state.get(f"_health_{key}", "?") in ("?",):
-            try:
-                st.session_state[f"_health_{key}"] = "OK" if probe_fn() else "DOWN"
-            except Exception:
-                st.session_state[f"_health_{key}"] = "DOWN"
+    # Update source health for still-unknown sources (concurrent, 5s max)
+    unknown = [k for k in ("llm", "futu", "ib", "baostock", "efinance")
+               if st.session_state.get(f"_health_{k}", "?") == "?"]
+    if unknown:
+        _probe_all_now(unknown)
     from tradingagents.data import a_stock, hk_stock, us_stock
     if market == "hk_stock":
         mod = hk_stock
@@ -215,14 +278,14 @@ def _fetch_stock_data(symbol: str, market: str, days: int = 30):
         end = pd.Timestamp.now().strftime("%Y-%m-%d")
         start = (pd.Timestamp.now() - pd.Timedelta(days=int(days * 1.6))).strftime("%Y-%m-%d")
         df = mod.get_kline_daily(symbol, start, end)
-        # Auto-update health: if kline succeeded, some source is working
+        # Auto-update health: if kline succeeded, mark likely sources OK
         if not df.empty:
             if market == "a_stock":
-                st.session_state._health_baostock = "OK"
+                _update_health("baostock", True)
             elif market in ("us_stock", "hk_stock"):
-                st.session_state._health_ib = "OK"
-            st.session_state._health_futu = "OK"
-            st.session_state._health_efinance = "OK"
+                _update_health("ib", True)
+            _update_health("futu", True)
+            _update_health("efinance", True)
         info = {"symbol": symbol, "market": market, "name": symbol}
         if not df.empty:
             last = df.iloc[-1]
@@ -803,6 +866,45 @@ def _build_pdf_report(state: dict, symbol: str, trade_date: str, market: str, de
     return result
 
 
+# ── System Health Bar ──────────────────────────────────────────────────
+
+def _render_health_bar():
+    """Render a compact system health dashboard at the top of the main area."""
+    html_parts = []
+    for cat, keys in HEALTH_CATEGORIES.items():
+        chips = []
+        for key in keys:
+            status = st.session_state.get(f"_health_{key}", "?")
+            if status == "OK":
+                dot = '<span style="color:#059669;font-size:1.1rem">●</span>'
+                lbl_color = "#059669"
+                label = "ON"
+            elif status == "DOWN":
+                hint = HEALTH_HINTS.get(key, "")
+                dot = f'<span style="color:#dc2626;font-size:1.1rem" title="{hint}">●</span>'
+                lbl_color = "#dc2626"
+                label = "OFF"
+                # Wrap with hint tooltip
+                label = f'<span title="{hint}" style="cursor:help">{label} ?</span>'
+            else:
+                dot = '<span style="color:#d1d5db;font-size:1.1rem">●</span>'
+                lbl_color = "#9ca3af"
+                label = "—"
+            chips.append(f'{dot} <span style="color:{lbl_color};font-size:0.72rem;font-weight:600">{key.upper()}</span> '
+                        f'<span style="color:{lbl_color};font-size:0.65rem">{label}</span>')
+        row = " &nbsp;│&nbsp; ".join(chips)
+        html_parts.append(
+            f'<span style="color:#6b7280;font-size:0.65rem;font-weight:700;text-transform:uppercase">{cat}</span>'
+            f'<span style="margin-left:12px">{row}</span>'
+        )
+    full_html = " &nbsp;│&nbsp; ".join(html_parts)
+    st.markdown(
+        f'<div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:8px 16px;margin-bottom:8px;line-height:2">'
+        f'{full_html}</div>',
+        unsafe_allow_html=True,
+    )
+
+
 # ── Main ────────────────────────────────────────────────────────────────
 def run():
     from tradingagents.graph.progress import get_progress, STEP_LABELS
@@ -810,10 +912,6 @@ def run():
     # Show initialization progress on first load (probes data sources)
     _init_data_sources()
 
-    # Build health dict from session state (initial: all "?")
-    health_status = {}
-    for k in ("futu", "ib", "baostock", "efinance", "akshare", "yfinance"):
-        health_status[k] = st.session_state.get(f"_health_{k}", "?")
 
     # Init session keys
     if "_running" not in st.session_state: st.session_state._running = False
@@ -882,28 +980,6 @@ def run():
         # Persist current selection
         _save_session(symbol, depth, data_window)
         st.divider()
-
-        # Data Sources Status — auto-updates when sources are accessed
-        st.divider()
-        st.markdown("**Data Sources Status**")
-        all_sources = ["futu", "ib", "baostock", "akshare", "efinance", "yfinance"]
-        labels = {"futu": "Futu", "ib": "IB", "baostock": "Baostock", "akshare": "akshare",
-                  "efinance": "efinance", "yfinance": "yfinance"}
-        cols = st.columns(2)
-        for i, key in enumerate(all_sources):
-            status = health_status.get(key, "?")
-            if status == "OK":
-                color = "#059669"; tag = '<span style="color:#059669;font-weight:600">ON</span>'
-            elif status == "DOWN":
-                color = "#dc2626"; tag = '<span style="color:#dc2626;font-weight:600">OFF</span>'
-            else:
-                color = "#6b7280"; tag = '<span style="color:#6b7280">—</span>'
-            with cols[i % 2]:
-                st.markdown(
-                    f'<span style="color:{color};font-size:1.18rem;font-weight:600">{labels[key]}</span>'
-                    f'<span style="margin-left:6px">{tag}</span>',
-                    unsafe_allow_html=True,
-                )
 
         # Batch analysis
         st.divider()
@@ -992,12 +1068,15 @@ def run():
 
     # ═══ MAIN ═══
     if market is None:
-        # Invalid ticker — stop here, error already shown in sidebar
+        _render_health_bar()
         st.info("Enter a valid ticker symbol to view stock data and run analysis.")
         return
 
     import datetime as _dt
     info, kline_df = _fetch_stock_data(symbol, market)
+
+    # System Health Dashboard
+    _render_health_bar()
 
     # Stock header + refresh
     rcol1, rcol2 = st.columns([25, 2])

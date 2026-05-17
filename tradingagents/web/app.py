@@ -585,39 +585,59 @@ def _build_pdf_report(state: dict, symbol: str, trade_date: str, market: str, de
     from fpdf import FPDF
     from fpdf.enums import XPos, YPos
 
-    # ── Chinese font discovery ──
+    # ── Chinese font discovery (Windows + macOS) ──
     def _find_chinese_font():
-        """Return (regular_path, bold_path, font_name) for CJK PDF rendering.
-        Searches system fonts first, then bundled fallback, then any .ttc/.ttf."""
-        import sys as _sys2
-        font_dir = Path("C:/Windows/Fonts")
-        # Priority-ordered candidates: (regular, bold, family_name)
-        candidates = [
-            ("msyh.ttc",  "msyhbd.ttc", "MicrosoftYaHei"),
-            ("msyh.ttf",  "msyhbd.ttf", "MicrosoftYaHei"),
-            ("simhei.ttf","simhei.ttf",  "SimHei"),
-            ("simsun.ttc","simsunb.ttf", "SimSun"),
-            ("simkai.ttf","simkai.ttf",  "KaiTi"),
-        ]
-        for reg, bold, family in candidates:
-            rp = font_dir / reg
-            bp = font_dir / bold
-            if rp.exists():
-                return str(rp), str(bp if bp.exists() else rp), family
-        # Check _MEIPASS for bundled font
+        """Return (regular_path, bold_path, font_name) for CJK PDF rendering."""
+        import sys as _sys2, platform as _platform
+
+        # Build font search dirs based on OS
+        font_dirs = []
+        if _platform.system() == "Windows":
+            font_dirs.append(Path("C:/Windows/Fonts"))
+        elif _platform.system() == "Darwin":
+            font_dirs.extend([
+                Path("/System/Library/Fonts"),
+                Path("/Library/Fonts"),
+                Path.home() / "Library" / "Fonts",
+            ])
+        # Add _MEIPASS as last resort
         meipass = getattr(_sys2, "_MEIPASS", None)
         if meipass:
-            for fname, family in [("NotoSansSC-Regular.otf", "NotoSansSC")]:
-                bundled = Path(meipass) / "fonts" / fname
-                if bundled.exists():
-                    return str(bundled), str(bundled), family
-        # Last resort: any .ttc or .ttf in Fonts directory
-        for ext in (".ttc", ".ttf"):
-            for f in font_dir.glob(f"*{ext}"):
-                return str(f), str(f), f.stem
+            font_dirs.append(Path(meipass) / "fonts")
+
+        # Candidates: (regular_file, bold_file, family_name)
+        if _platform.system() == "Windows":
+            candidates = [
+                ("msyh.ttc",  "msyhbd.ttc", "MicrosoftYaHei"),
+                ("msyh.ttf",  "msyhbd.ttf", "MicrosoftYaHei"),
+                ("simhei.ttf","simhei.ttf",  "SimHei"),
+                ("simsun.ttc","simsunb.ttf", "SimSun"),
+                ("simkai.ttf","simkai.ttf",  "KaiTi"),
+            ]
+        else:  # macOS / Linux
+            candidates = [
+                ("PingFang.ttc",  "PingFang.ttc",  "PingFang"),
+                ("STHeiti Light.ttc", "STHeiti Light.ttc", "STHeiti"),
+                ("STHeiti Medium.ttc", "STHeiti Medium.ttc", "STHeiti"),
+                ("Heiti SC.ttc", "Heiti SC.ttc", "Heiti SC"),
+                ("NotoSansSC-Regular.otf", "NotoSansSC-Regular.otf", "NotoSansSC"),
+            ]
+
+        for font_dir in font_dirs:
+            if not font_dir.is_dir():
+                continue
+            for reg, bold, family in candidates:
+                rp = font_dir / reg
+                bp = font_dir / bold
+                if rp.exists():
+                    return str(rp), str(bp if bp.exists() else rp), family
+            # Fallback: any .ttc or .ttf in this font directory
+            for ext in (".ttc", ".ttf", ".otf"):
+                for f in font_dir.glob(f"*{ext}"):
+                    return str(f), str(f), f.stem
+
         raise FileNotFoundError(
-            "No CJK font found. Install a Chinese font or place a .ttf/.ttc "
-            "file in C:\\Windows\\Fonts\\."
+            "No CJK font found. Install a Chinese font pack."
         )
 
     FONT_PATH, BOLD_PATH, FONT_NAME = _find_chinese_font()

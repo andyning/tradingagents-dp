@@ -557,6 +557,11 @@ def run():
         market = _detect_market(symbol)
         st.markdown(f'<div style="color:rgba(255,255,255,.45);font-size:1.25rem;padding:4px 0">{_market_label(market)}</div>', unsafe_allow_html=True)
 
+        # Warn if input looks like a company name, not a ticker
+        clean_symbol = symbol.strip().upper().replace(" ", "")
+        if clean_symbol.isalpha() and len(clean_symbol) > 5:
+            st.warning(f"**"{clean_symbol}" looks like a company name, not a ticker.**\n\nUS stock tickers are 1–5 letters (e.g. AAPL, TSLA, PATH). Please enter the correct ticker symbol.")
+
         st.markdown('<div class="ig-label">Data Window</div>', unsafe_allow_html=True)
         dw_default = last.get("data_window", 30)
         dw_index = [30, 60, 120, 250].index(dw_default) if dw_default in [30, 60, 120, 250] else 0

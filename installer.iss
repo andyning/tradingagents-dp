@@ -29,7 +29,6 @@ ArchitecturesInstallIn64BitMode=x64compatible
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
-Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional icons:"
@@ -79,7 +78,7 @@ begin
     if not FileExists(EnvFile) then
     begin
       // Copy template from .env.example if .env doesn't exist
-      FileCopy(ExpandConstant('{app}\.env.example'), EnvFile, False);
+      CopyFile(ExpandConstant('{app}\.env.example'), EnvFile, False);
     end;
 
     // If user provided an API key, write it to .env

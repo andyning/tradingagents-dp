@@ -201,31 +201,11 @@ def _probe_all_now(keys: list[str] | None = None):
         _update_health(key, ok)
 
 
-# ── Initialization — quick splash, probes run async (no blocking) ──────
+# ── Initialization — no probes, just mark ready ────────────────────────
 def _init_data_sources():
-    """Quick splash screen. Probes run in background thread so UI loads fast."""
+    """Minimal init — health probes run on demand, not at startup."""
     if st.session_state.get("_init_done"):
         return
-    init_ph = st.empty()
-    with init_ph.container():
-        st.markdown("###  TradingAgents starting...")
-        st.caption("Connecting to data sources in background...")
-        progress_bar = st.progress(0, "Initializing...")
-        # Give Streamlit a moment to render the splash
-        time.sleep(0.3)
-        progress_bar.progress(1.0, "Ready")
-        time.sleep(0.2)
-
-    init_ph.empty()
-    # Launch probes in a daemon thread — don't block the UI
-    import threading
-    def _bg_probe():
-        try:
-            _probe_all_now(["llm", "futu", "baostock", "efinance", "ib"])
-        except Exception:
-            pass
-    t = threading.Thread(target=_bg_probe, daemon=True)
-    t.start()
     st.session_state._init_done = True
 
 
@@ -1114,30 +1094,20 @@ def run():
         return
 
     import datetime as _dt
-    import traceback
 
-    # Fetch data with 5s timeout — never block UI
-    info = {"symbol": symbol, "market": market, "name": symbol}
-    kline_df = pd.DataFrame()
-    _fetch_error = None
-    try:
-        import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as _ex:
-            _fut = _ex.submit(_fetch_stock_data, symbol, market)
-            try:
-                info, kline_df = _fut.result(timeout=5.0)
-            except concurrent.futures.TimeoutError:
-                _fut.cancel()
-                st.toast("Data sources are slow or offline — showing cached/empty data", icon="⚠️")
-    except Exception as e:
-        _fetch_error = str(e)
-        st.toast("Data sources are slow or offline — showing cached/empty data", icon="⚠️")
+    # On first load (no prior analysis), skip data fetch to avoid blocking UI
+    # User clicks Refresh to explicitly load stock data
+    _first_visit = not st.session_state.get("_data_loaded", False)
+    if _first_visit:
+        st.session_state._data_loaded = True
+        info = {"symbol": symbol, "market": market, "name": symbol}
+        kline_df = pd.DataFrame()
+        st.info("Welcome! Click **Refresh** to load stock data, or **Run Analysis** to start.")
+    else:
+        info, kline_df = _fetch_stock_data(symbol, market)
 
     # System Health Dashboard
     _render_health_bar()
-
-    # DEBUG: confirm rendering reaches this point
-    st.caption("System ready — health bar above, metric cards below")
 
     # Stock header + refresh
     rcol1, rcol2 = st.columns([25, 2])

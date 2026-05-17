@@ -411,27 +411,33 @@ def _load_cached_result(symbol: str, depth: str) -> dict | None:
 
 
 # ── Auto-detect market from symbol ──────────────────────────────────────
-def _detect_market(symbol: str) -> str:
-    """Guess the market from the ticker format."""
+def _detect_market(symbol: str) -> str | None:
+    """Determine market from ticker format. Returns None if unrecognized.
+
+    Valid formats:
+      - A-stock: 6 digits (600519), or SH.xxx / SZ.xxx
+      - HK stock: 1-5 digits (700, 9988), or xxx.HK
+      - US stock: 1-5 letters (AAPL, TSLA, PATH)
+    """
     s = symbol.strip().upper().replace(" ", "")
     if not s:
-        return "a_stock"
-    # US: pure alpha (ticker like AAPL, or company name like UiPath)
-    if s.isalpha():
-        return "us_stock"
-    # A-stock: 6-digit numeric code
+        return None
+    # A-stock: 6-digit numeric
     if s.isdigit() and len(s) == 6:
         return "a_stock"
-    # HK: 1-5 digit numeric code
+    # HK: 1-5 digit numeric
     if s.isdigit() and len(s) <= 5:
         return "hk_stock"
-    # Explicit prefixes
-    if s.startswith("SH.") or s.startswith("SZ."):
+    # US: 1-5 letters
+    if s.isalpha() and len(s) <= 5:
+        return "us_stock"
+    # Explicit qualified formats
+    if s.startswith(("SH.", "SZ.")):
         return "a_stock"
     if s.endswith(".HK"):
         return "hk_stock"
-    # Mixed alphanumeric or unknown: treat as US (most likely company name or ticker)
-    return "us_stock"
+    # Anything else: company name, invalid code, etc.
+    return None
 
 
 # ── Session persistence ────────────────────────────────────────────────
@@ -457,7 +463,9 @@ def _load_session() -> dict:
     return {}
 
 
-def _market_label(m: str) -> str:
+def _market_label(m: str | None) -> str:
+    if m is None:
+        return "Unrecognized"
     return {"a_stock": "A-Shares", "hk_stock": "Hong Kong", "us_stock": "US Stocks"}.get(m, m)
 
 
@@ -557,10 +565,17 @@ def run():
         market = _detect_market(symbol)
         st.markdown(f'<div style="color:rgba(255,255,255,.45);font-size:1.25rem;padding:4px 0">{_market_label(market)}</div>', unsafe_allow_html=True)
 
-        # Warn if input looks like a company name, not a ticker
-        clean_symbol = symbol.strip().upper().replace(" ", "")
-        if clean_symbol.isalpha() and len(clean_symbol) > 5:
-            st.warning(f"**"{clean_symbol}" looks like a company name, not a ticker.**\n\nUS stock tickers are 1–5 letters (e.g. AAPL, TSLA, PATH). Please enter the correct ticker symbol.")
+        # Validate ticker format
+        if market is None:
+            sym = symbol.strip()
+            st.error(
+                f"**'{sym}' is not a recognized ticker format.**\n\n"
+                "Valid formats:\n\n"
+                "- **A-Shares**: 6-digit code (e.g. 600519, 000001)\n"
+                "- **HK Stocks**: 1-5 digit code (e.g. 700, 9988)\n"
+                "- **US Stocks**: 1-5 letter symbol (e.g. AAPL, TSLA, PATH)\n"
+                "- Qualified: SH.600519, 700.HK"
+            )
 
         st.markdown('<div class="ig-label">Data Window</div>', unsafe_allow_html=True)
         dw_default = last.get("data_window", 30)
@@ -624,7 +639,7 @@ def run():
 
         # Run Analysis — ALWAYS at the bottom
         st.divider()
-        can_run = not st.session_state._running
+        can_run = not st.session_state._running and market is not None
         if st.button("▶  Run Analysis", type="primary", disabled=not can_run, use_container_width=True):
             st.session_state._running = True
             st.session_state._done = False
@@ -678,6 +693,11 @@ def run():
             st.session_state._from_cache = True
 
     # ═══ MAIN ═══
+    if market is None:
+        # Invalid ticker — stop here, error already shown in sidebar
+        st.info("Enter a valid ticker symbol to view stock data and run analysis.")
+        return
+
     import datetime as _dt
     info, kline_df = _fetch_stock_data(symbol, market)
 

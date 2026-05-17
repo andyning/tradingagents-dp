@@ -66,8 +66,8 @@ def _base_context(state: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _call_llm_with_retry(messages: list[dict], mode: str = "quick", max_retries: int = 3) -> str:
-    """Call LLM with retry on transient failures."""
+def _call_llm_with_retry(messages: list[dict], mode: str = "quick", max_retries: int = 2) -> str:
+    """Call LLM with retry on transient failures. No retry on auth errors (401)."""
     llm = get_llm_client(mode)
     last_error = None
     for attempt in range(max_retries):
@@ -76,8 +76,13 @@ def _call_llm_with_retry(messages: list[dict], mode: str = "quick", max_retries:
             return resp.content or ""
         except Exception as exc:
             last_error = exc
+            # Never retry auth errors — API key is wrong
+            err_str = str(exc).lower()
+            if "401" in err_str or "authentication" in err_str or "invalid_request_error" in err_str:
+                logger.error("LLM auth error (not retrying): %s", exc)
+                return ""
             if attempt < max_retries - 1:
-                time = __import__("time")
+                import time
                 time.sleep(2 * (attempt + 1))
                 logger.warning("LLM retry %d/%d after: %s", attempt + 1, max_retries, exc)
     logger.error("LLM failed after %d retries: %s", max_retries, last_error)

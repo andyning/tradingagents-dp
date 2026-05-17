@@ -273,6 +273,8 @@ class DeepSeekClient:
                         time.sleep(delay)
                         continue
                     raise LLMConnectionError(str(exc)) from exc
+                if self._is_auth_error(exc):
+                    raise LLMResponseError(str(exc)) from exc
                 if attempt < MAX_RETRIES:
                     delay = RETRY_BACKOFF[attempt]
                     logger.warning("LLM error (attempt %d), retrying in %ds: %s", attempt + 1, delay, exc)
@@ -306,6 +308,12 @@ class DeepSeekClient:
             return True
         msg = str(exc).lower()
         return any(kw in msg for kw in ("connection", "timeout", "refused", "reset"))
+
+    @staticmethod
+    def _is_auth_error(exc: Exception) -> bool:
+        """401 or authentication failures — never retry these."""
+        msg = str(exc).lower()
+        return any(kw in msg for kw in ("401", "authentication", "invalid api key", "invalid_request_error"))
 
 
 # ---- module-level convenience ----

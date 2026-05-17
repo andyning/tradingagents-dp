@@ -201,40 +201,31 @@ def _probe_all_now(keys: list[str] | None = None):
         _update_health(key, ok)
 
 
-# ── Initialization — probe data sources on first load ───────────────────
+# ── Initialization — quick splash, probes run async (no blocking) ──────
 def _init_data_sources():
-    """Probe all data sources and show progress. Runs once per session."""
+    """Quick splash screen. Probes run in background thread so UI loads fast."""
     if st.session_state.get("_init_done"):
         return
     init_ph = st.empty()
     with init_ph.container():
-        st.markdown("###  Initializing TradingAgents")
-        st.caption("Connecting to data sources...")
-        progress_bar = st.progress(0, "Starting...")
-        status_lines = st.empty()
-
-        sources = [
-            ("LLM (DeepSeek API)", "llm"),
-            ("Futu (A/HK/US K-line, PE/PB)", "futu"),
-            ("Baostock (A-stock K-line, Financials)", "baostock"),
-            ("efinance (Multi-market Quotes)", "efinance"),
-            ("IB (US/HK Institutional Data)", "ib"),
-        ]
-        # Probe all concurrently (max 5s total)
-        progress_bar.progress(0.3, "Probing all data sources concurrently...")
-        _probe_all_now([k for _, k in sources])
-        lines = []
-        for i, (label, key) in enumerate(sources):
-            status = st.session_state.get(f"_health_{key}", "?")
-            ok = status == "OK"
-            icon = "ON" if ok else "OFF"
-            color = "#059669" if ok else "#dc2626"
-            lines.append(f'<span style="color:{color};font-weight:600">{icon}</span>  {label}')
-        status_lines.markdown("<br>".join(lines), unsafe_allow_html=True)
-        progress_bar.progress(1.0, "Initialization complete")
+        st.markdown("###  TradingAgents starting...")
+        st.caption("Connecting to data sources in background...")
+        progress_bar = st.progress(0, "Initializing...")
+        # Give Streamlit a moment to render the splash
         time.sleep(0.3)
+        progress_bar.progress(1.0, "Ready")
+        time.sleep(0.2)
 
     init_ph.empty()
+    # Launch probes in a daemon thread — don't block the UI
+    import threading
+    def _bg_probe():
+        try:
+            _probe_all_now(["llm", "futu", "baostock", "efinance", "ib"])
+        except Exception:
+            pass
+    t = threading.Thread(target=_bg_probe, daemon=True)
+    t.start()
     st.session_state._init_done = True
 
 

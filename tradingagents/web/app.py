@@ -416,17 +416,22 @@ def _detect_market(symbol: str) -> str:
     s = symbol.strip().upper().replace(" ", "")
     if not s:
         return "a_stock"
-    if s.isalpha() and len(s) <= 5:
+    # US: pure alpha (ticker like AAPL, or company name like UiPath)
+    if s.isalpha():
         return "us_stock"
+    # A-stock: 6-digit numeric code
     if s.isdigit() and len(s) == 6:
         return "a_stock"
+    # HK: 1-5 digit numeric code
     if s.isdigit() and len(s) <= 5:
         return "hk_stock"
+    # Explicit prefixes
     if s.startswith("SH.") or s.startswith("SZ."):
         return "a_stock"
     if s.endswith(".HK"):
         return "hk_stock"
-    return "a_stock"
+    # Mixed alphanumeric or unknown: treat as US (most likely company name or ticker)
+    return "us_stock"
 
 
 # ── Session persistence ────────────────────────────────────────────────

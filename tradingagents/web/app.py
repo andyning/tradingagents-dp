@@ -1114,9 +1114,12 @@ def run():
         return
 
     import datetime as _dt
+    import traceback
+
     # Fetch data with 5s timeout — never block UI
     info = {"symbol": symbol, "market": market, "name": symbol}
     kline_df = pd.DataFrame()
+    _fetch_error = None
     try:
         import concurrent.futures
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as _ex:
@@ -1126,11 +1129,15 @@ def run():
             except concurrent.futures.TimeoutError:
                 _fut.cancel()
                 st.toast("Data sources are slow or offline — showing cached/empty data", icon="⚠️")
-    except Exception:
+    except Exception as e:
+        _fetch_error = str(e)
         st.toast("Data sources are slow or offline — showing cached/empty data", icon="⚠️")
 
     # System Health Dashboard
     _render_health_bar()
+
+    # DEBUG: confirm rendering reaches this point
+    st.caption("System ready — health bar above, metric cards below")
 
     # Stock header + refresh
     rcol1, rcol2 = st.columns([25, 2])

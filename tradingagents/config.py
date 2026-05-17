@@ -4,6 +4,7 @@ Reads from .env file, environment variables, and defaults (in priority order).
 """
 
 import os
+import sys as _sys
 from pathlib import Path
 from typing import Optional
 
@@ -13,11 +14,23 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 _TRADINGAGENTS_HOME = Path.home() / ".tradingagents"
 
 
+def _find_env() -> str:
+    """Locate .env: check .exe directory first (PyInstaller), then source tree."""
+    # In PyInstaller frozen mode, look next to the .exe
+    if getattr(_sys, "frozen", False):
+        exe_dir = Path(_sys.executable).parent
+        candidate = exe_dir / ".env"
+        if candidate.exists():
+            return str(candidate)
+    # Dev mode: use source tree location
+    return str(Path(__file__).parent.parent / ".env")
+
+
 class Settings(BaseSettings):
     """TradingAgents configuration."""
 
     model_config = SettingsConfigDict(
-        env_file=str(Path(__file__).parent.parent / ".env"),  # Absolute path — works in any CWD
+        env_file=_find_env(),
         env_file_encoding="utf-8",
         extra="ignore",
     )

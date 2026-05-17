@@ -6,6 +6,7 @@ return a dict update to the LangGraph state.
 
 from __future__ import annotations
 
+import sys as _sys
 from pathlib import Path
 from typing import Any, Callable
 
@@ -17,8 +18,19 @@ from tradingagents.logging import get_logger
 
 logger = get_logger(__name__)
 
+
+def _get_prompts_dir() -> Path:
+    """Resolve the prompts directory (handles PyInstaller _MEIPASS)."""
+    meipass = getattr(_sys, "_MEIPASS", None)
+    if meipass:
+        candidate = Path(meipass) / "tradingagents" / "agents" / "prompts"
+        if candidate.is_dir():
+            return candidate
+    return Path(__file__).parent / "prompts"
+
+
 # Jinja2 environment for prompt templates
-_PROMPTS_DIR = Path(__file__).parent / "prompts"
+_PROMPTS_DIR = _get_prompts_dir()
 _jinja_env = Environment(
     loader=FileSystemLoader(str(_PROMPTS_DIR)),
     autoescape=False,

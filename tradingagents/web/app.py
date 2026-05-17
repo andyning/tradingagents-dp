@@ -522,9 +522,42 @@ def _build_pdf_report(state: dict, symbol: str, trade_date: str, market: str, de
     from fpdf import FPDF
     from fpdf.enums import XPos, YPos
 
-    # Register Chinese font
-    FONT_PATH = "C:/Windows/Fonts/msyh.ttc"
-    FONT_NAME = "MicrosoftYaHei"
+    # ── Chinese font discovery ──
+    def _find_chinese_font():
+        """Return (regular_path, bold_path, font_name) for CJK PDF rendering.
+        Searches system fonts first, then bundled fallback, then any .ttc/.ttf."""
+        import sys as _sys2
+        font_dir = Path("C:/Windows/Fonts")
+        # Priority-ordered candidates: (regular, bold, family_name)
+        candidates = [
+            ("msyh.ttc",  "msyhbd.ttc", "MicrosoftYaHei"),
+            ("msyh.ttf",  "msyhbd.ttf", "MicrosoftYaHei"),
+            ("simhei.ttf","simhei.ttf",  "SimHei"),
+            ("simsun.ttc","simsunb.ttf", "SimSun"),
+            ("simkai.ttf","simkai.ttf",  "KaiTi"),
+        ]
+        for reg, bold, family in candidates:
+            rp = font_dir / reg
+            bp = font_dir / bold
+            if rp.exists():
+                return str(rp), str(bp if bp.exists() else rp), family
+        # Check _MEIPASS for bundled font
+        meipass = getattr(_sys2, "_MEIPASS", None)
+        if meipass:
+            for fname, family in [("NotoSansSC-Regular.otf", "NotoSansSC")]:
+                bundled = Path(meipass) / "fonts" / fname
+                if bundled.exists():
+                    return str(bundled), str(bundled), family
+        # Last resort: any .ttc or .ttf in Fonts directory
+        for ext in (".ttc", ".ttf"):
+            for f in font_dir.glob(f"*{ext}"):
+                return str(f), str(f), f.stem
+        raise FileNotFoundError(
+            "No CJK font found. Install a Chinese font or place a .ttf/.ttc "
+            "file in C:\\Windows\\Fonts\\."
+        )
+
+    FONT_PATH, BOLD_PATH, FONT_NAME = _find_chinese_font()
 
     class PDF(FPDF):
         def header(self):
@@ -616,7 +649,7 @@ def _build_pdf_report(state: dict, symbol: str, trade_date: str, market: str, de
     pdf = PDF()
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_font(FONT_NAME, "", FONT_PATH)
-    pdf.add_font(FONT_NAME, "B", "C:/Windows/Fonts/msyhbd.ttc")
+    pdf.add_font(FONT_NAME, "B", BOLD_PATH)
 
     # ── Cover page ──
     pdf.add_page()

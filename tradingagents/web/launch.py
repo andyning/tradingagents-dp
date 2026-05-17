@@ -1,4 +1,6 @@
-"""Launch script for tradingagents-web — handles Ctrl+C cleanly on Windows."""
+"""Launch script for tradingagents-web — handles Ctrl+C cleanly on Windows.
+In PyInstaller frozen mode, routes to the in-process launcher.
+"""
 
 import os
 import signal
@@ -8,6 +10,13 @@ from pathlib import Path
 
 
 def main():
+    # In PyInstaller frozen mode, use in-process launcher (no subprocess)
+    if getattr(sys, "frozen", False):
+        from main_entry import main as bundled_main
+        bundled_main()
+        return
+
+    # Dev mode: spawn Streamlit via subprocess
     app_path = Path(__file__).parent / "app.py"
     args = [sys.executable, "-m", "streamlit", "run", str(app_path), *sys.argv[1:]]
     print("Starting Streamlit server... (Ctrl+C to stop)")

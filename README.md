@@ -18,22 +18,27 @@ Multi-agent LLM investment analysis framework. 7 specialist analysts debate, a p
 
 ### Install
 
+**Windows (PowerShell):**
 ```powershell
 .\install.ps1
-notepad .env          # add your DeepSeek key
+```
+**macOS / Linux:**
+```bash
+bash install.sh
 ```
 
-Or manually:
+This creates a virtual environment, installs all dependencies, and sets up `.env`.
 
-```powershell
-python -m venv venv
-.\venv\Scripts\activate
+**Manual install** (any OS):
+```bash
+python3 -m venv venv
+source venv/bin/activate      # Windows: .\venv\Scripts\activate
 pip install -e .
 ```
 
 ### Configure
 
-Edit `.env`:
+Edit `.env` and add your key:
 
 ```env
 DEEPSEEK_API_KEY=sk-your-key-here
@@ -53,9 +58,14 @@ Starting quota (no deposit): 100 subscriptions + 100 K-line requests per session
 
 ### Run
 
-```powershell
-tradingagents-web      # Web dashboard (recommended)
-tradingagents -s 600519 -d 2026-05-15   # CLI
+```bash
+# Activate venv first:
+source venv/bin/activate     # macOS / Linux
+.\venv\Scripts\Activate.ps1  # Windows
+
+# Then:
+tradingagents-web                         # Web dashboard (recommended)
+tradingagents -s 600519 -d 2026-05-15     # CLI
 tradingagents-api                         # REST API → http://localhost:8000/docs
 ```
 

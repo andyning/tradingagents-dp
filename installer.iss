@@ -3,7 +3,7 @@
 ; Output: Output\TradingAgents-Setup.exe
 
 #define MyAppName "TradingAgents"
-#define MyAppVersion "0.8.0"
+#define MyAppVersion "0.5.0"
 #define MyAppPublisher "TradingAgents-dp"
 #define MyAppURL "https://github.com/andyning/tradingagents-dp"
 #define MyAppExeName "TradingAgents.exe"

@@ -253,11 +253,6 @@ def _run_pipeline(symbol: str, trade_date: str, market: str, depth: str, data_wi
 @st.cache_data(show_spinner=False, ttl=1800)
 def _fetch_stock_data(symbol: str, market: str, days: int = 30):
     """Return (info_dict, kline_dataframe). Single network call for both."""
-    # Update source health for still-unknown sources (concurrent, 5s max)
-    unknown = [k for k in ("llm", "futu", "ib", "baostock", "efinance")
-               if st.session_state.get(f"_health_{k}", "?") == "?"]
-    if unknown:
-        _probe_all_now(unknown)
     from tradingagents.data import a_stock, hk_stock, us_stock
     if market == "hk_stock":
         mod = hk_stock
@@ -1119,7 +1114,17 @@ def run():
         return
 
     import datetime as _dt
-    info, kline_df = _fetch_stock_data(symbol, market)
+    # Fetch with 5s timeout — don't block UI if data sources are offline
+    import concurrent.futures
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as _ex:
+        _fut = _ex.submit(_fetch_stock_data, symbol, market)
+        try:
+            info, kline_df = _fut.result(timeout=5.0)
+        except concurrent.futures.TimeoutError:
+            _fut.cancel()
+            info = {"symbol": symbol, "market": market, "name": symbol}
+            kline_df = pd.DataFrame()
+            st.toast("Data sources are slow or offline — showing cached/empty data", icon="⚠️")
 
     # System Health Dashboard
     _render_health_bar()

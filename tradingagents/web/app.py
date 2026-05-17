@@ -92,58 +92,18 @@ st.markdown("""<style>
     header, footer, #MainMenu, [data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecoration"], [data-testid="stStatusWidget"] { display: none !important; }
 </style>""", unsafe_allow_html=True)
 
-# ── Pipeline runner (background thread) ─────────────────────────────────
-def _run_pipeline(symbol: str, trade_date: str, market: str, depth: str, data_window: int):
-    from tradingagents.config import reset_settings
-    from tradingagents.llm.client import clear_client_cache, reset_token_stats
-    from tradingagents.graph.progress import reset_progress, finish
-    from tradingagents.graph.graph import TradingAgentsGraph
-
-    reset_settings(); clear_client_cache(); reset_token_stats()
-    p = reset_progress(depth)
-    p.symbol = symbol; p.trade_date = trade_date; p.market = market
-    try:
-        graph = TradingAgentsGraph(debug=False)
-        state, decision, signal = graph.propagate(symbol, trade_date, market=market, depth=depth, data_window=data_window)
-        p2 = finish()
-        p2.step_results["__state__"] = state
-        p2.step_results["__decision__"] = decision
-        p2.step_results["__signal__"] = signal
-    except Exception as exc:
-        finish(error=str(exc))
-
-# ── Stock info + K-line (single fetch, cached) ────────────────────────
-def _probe_data_sources():
-    """Lightweight probe of each data source, updates session_state health."""
-    probes = {
-        "futu": lambda: _probe_futu(),
-        "ib": lambda: _probe_ib(),
-        "baostock": lambda: _probe_baostock(),
-        "efinance": lambda: _probe_efinance(),
-    }
-    for key, probe_fn in probes.items():
-        if st.session_state.get(f"_health_{key}", "?") in ("?", "DOWN"):
-            try:
-                ok = probe_fn()
-                st.session_state[f"_health_{key}"] = "OK" if ok else "DOWN"
-            except Exception:
-                st.session_state[f"_health_{key}"] = "DOWN"
-
+# ── Data source probes ──────────────────────────────────────────────────
 
 def _probe_futu():
     try:
         from tradingagents.data.sources.futu import _get_shared_futu
-        ctx = _get_shared_futu()
-        return ctx is not None
+        return _get_shared_futu() is not None
     except Exception:
         return False
 
 
 def _probe_ib():
     try:
-        import importlib, sys
-        if "tradingagents.data.sources.ib" not in sys.modules:
-            importlib.import_module("tradingagents.data.sources.ib")
         from tradingagents.data.sources.ib import _ensure_worker
         _ensure_worker()
         return True
@@ -171,10 +131,77 @@ def _probe_efinance():
         return False
 
 
+# ── Initialization — probe data sources on first load ───────────────────
+def _init_data_sources():
+    """Probe all data sources and show progress. Runs once per session."""
+    if st.session_state.get("_init_done"):
+        return
+    init_ph = st.empty()
+    with init_ph.container():
+        st.markdown("###  Initializing TradingAgents")
+        st.caption("Connecting to data sources...")
+        progress_bar = st.progress(0, "Starting...")
+        status_lines = st.empty()
+
+        sources = [
+            ("Futu (A/HK/US K-line, PE/PB, Fund Flow)", "futu", _probe_futu),
+            ("Baostock (A-stock K-line, Financials)", "baostock", _probe_baostock),
+            ("efinance (Multi-market Quotes)", "efinance", _probe_efinance),
+            ("IB (US/HK Institutional Data)", "ib", _probe_ib),
+        ]
+        lines = []
+        for i, (label, key, probe_fn) in enumerate(sources):
+            progress_bar.progress((i + 0.5) / len(sources), f"Probing {label.split()[0]}...")
+            try:
+                ok = probe_fn()
+                st.session_state[f"_health_{key}"] = "OK" if ok else "DOWN"
+                icon = "ON" if ok else "OFF"
+                color = "#059669" if ok else "#dc2626"
+                lines.append(f'<span style="color:{color};font-weight:600">{icon}</span>  {label}')
+            except Exception:
+                st.session_state[f"_health_{key}"] = "DOWN"
+                lines.append(f'<span style="color:#dc2626;font-weight:600">OFF</span>  {label}')
+            status_lines.markdown("<br>".join(lines), unsafe_allow_html=True)
+            progress_bar.progress((i + 1) / len(sources), f"Done: {label.split()[0]}")
+
+        progress_bar.progress(1.0, "Initialization complete")
+        time.sleep(0.3)
+
+    init_ph.empty()
+    st.session_state._init_done = True
+
+
+# ── Pipeline runner (background thread) ─────────────────────────────────
+def _run_pipeline(symbol: str, trade_date: str, market: str, depth: str, data_window: int):
+    from tradingagents.config import reset_settings
+    from tradingagents.llm.client import clear_client_cache, reset_token_stats
+    from tradingagents.graph.progress import reset_progress, finish
+    from tradingagents.graph.graph import TradingAgentsGraph
+
+    reset_settings(); clear_client_cache(); reset_token_stats()
+    p = reset_progress(depth)
+    p.symbol = symbol; p.trade_date = trade_date; p.market = market
+    try:
+        graph = TradingAgentsGraph(debug=False)
+        state, decision, signal = graph.propagate(symbol, trade_date, market=market, depth=depth, data_window=data_window)
+        p2 = finish()
+        p2.step_results["__state__"] = state
+        p2.step_results["__decision__"] = decision
+        p2.step_results["__signal__"] = signal
+    except Exception as exc:
+        finish(error=str(exc))
+
+# ── Stock info + K-line (single fetch, cached) ────────────────────────
 @st.cache_data(show_spinner=False, ttl=1800)
 def _fetch_stock_data(symbol: str, market: str, days: int = 30):
     """Return (info_dict, kline_dataframe). Single network call for both."""
-    _probe_data_sources()  # Update source health on every fetch
+    # Update source health for still-unknown sources
+    for key, probe_fn in [("futu", _probe_futu), ("ib", _probe_ib), ("baostock", _probe_baostock), ("efinance", _probe_efinance)]:
+        if st.session_state.get(f"_health_{key}", "?") in ("?",):
+            try:
+                st.session_state[f"_health_{key}"] = "OK" if probe_fn() else "DOWN"
+            except Exception:
+                st.session_state[f"_health_{key}"] = "DOWN"
     from tradingagents.data import a_stock, hk_stock, us_stock
     if market == "hk_stock":
         mod = hk_stock
@@ -478,6 +505,9 @@ def _build_export_report(state: dict, symbol: str, trade_date: str, market: str,
 # ── Main ────────────────────────────────────────────────────────────────
 def run():
     from tradingagents.graph.progress import get_progress, STEP_LABELS
+
+    # Show initialization progress on first load (probes data sources)
+    _init_data_sources()
 
     # Build health dict from session state (initial: all "?")
     health_status = {}

@@ -252,14 +252,8 @@ def _fetch_stock_data(symbol: str, market: str, days: int = 30):
         end = pd.Timestamp.now().strftime("%Y-%m-%d")
         start = (pd.Timestamp.now() - pd.Timedelta(days=int(days * 1.6))).strftime("%Y-%m-%d")
         df = mod.get_kline_daily(symbol, start, end)
-        # Auto-update health: if kline succeeded, mark likely sources OK
-        if not df.empty:
-            if market == "a_stock":
-                _update_health("baostock", True)
-            elif market in ("us_stock", "hk_stock"):
-                _update_health("ib", True)
-            _update_health("futu", True)
-            _update_health("efinance", True)
+        # Note: health is probed on-demand — do NOT blindly mark sources OK here
+        # since data may have come from a fallback source, not the primary
         info = {"symbol": symbol, "market": market, "name": symbol}
         if not df.empty:
             last = df.iloc[-1]

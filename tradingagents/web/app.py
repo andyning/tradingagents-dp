@@ -117,10 +117,8 @@ def _probe_baostock():
         import baostock as bs
         with contextlib.redirect_stdout(io.StringIO()):
             lg = bs.login()
-            if lg.error_code == "0":
-                bs.logout()
-                return True
-        return False
+            # Do NOT logout — Baostock socket breaks on rapid login/logout cycles
+            return lg.error_code == "0"
     except Exception:
         return False
 

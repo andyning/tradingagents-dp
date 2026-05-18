@@ -67,9 +67,9 @@ class BaostockSource(DataSource):
             logger.debug("Baostock logged in")
 
     def _logout(self):
-        if self._logged_in:
-            bs.logout()
-            self._logged_in = False
+        # Keep connection alive — Baostock socket breaks on rapid login/logout cycles.
+        # Let the connection be garbage-collected when the process exits.
+        pass
 
     # ---- K-line ----
 

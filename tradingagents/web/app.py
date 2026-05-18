@@ -187,19 +187,29 @@ def _probe_all_now(keys: list[str] | None = None):
                   "baostock": _probe_baostock, "efinance": _probe_efinance}
     import concurrent.futures
     results = {}
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(keys)) as ex:
-        futures = {ex.submit(probes_map[k]): k for k in keys if k in probes_map}
-        for fut in concurrent.futures.as_completed(futures, timeout=5):
-            key = futures[fut]
-            try:
-                results[key] = fut.result(timeout=0.1)
-            except Exception:
-                results[key] = False
-        # Any keys that didn't complete within 5s → mark DOWN
-        for fut, key in list(futures.items()):
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(keys)) as ex:
+            futures = {ex.submit(probes_map[k]): k for k in keys if k in probes_map}
+            for fut in concurrent.futures.as_completed(futures, timeout=10):
+                key = futures[fut]
+                try:
+                    results[key] = fut.result(timeout=0.1)
+                except Exception:
+                    results[key] = False
+            # Any keys that didn't complete within 10s → mark DOWN
+            for fut, key in list(futures.items()):
+                if key not in results:
+                    results[key] = False
+                    fut.cancel()
+    except concurrent.futures.TimeoutError:
+        # Mark remaining as DOWN
+        for key in keys:
             if key not in results:
                 results[key] = False
-                fut.cancel()
+    except Exception:
+        for key in keys:
+            if key not in results:
+                results[key] = False
     for key, ok in results.items():
         _update_health(key, ok)
 

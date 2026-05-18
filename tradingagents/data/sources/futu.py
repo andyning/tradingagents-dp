@@ -86,8 +86,17 @@ def _get_shared_futu():
 
 def _reset_futu_flag():
     """Reset the fast-fail flag (called on Refresh)."""
-    global _FUTU_DOWN
+    global _FUTU_DOWN, _futu_ctx
     _FUTU_DOWN = False
+    _futu_ctx = None
+
+
+def _handle_futu_failure():
+    """Called when a Futu API call fails — marks connection as broken for reconnect."""
+    global _FUTU_DOWN, _FUTU_DOWN_SINCE, _futu_ctx
+    _futu_ctx = None
+    _FUTU_DOWN = True
+    _FUTU_DOWN_SINCE = time.time()
 
 
 class FutuSource(DataSource):
@@ -142,6 +151,7 @@ class FutuSource(DataSource):
             )
             if ret != 0:
                 logger.warning("Futu K-line failed: ret=%s symbol=%s", ret, futu_sym)
+                _handle_futu_failure()
                 return pd.DataFrame()
             if df is None or df.empty:
                 logger.warning("Futu K-line empty: symbol=%s", futu_sym)
@@ -163,6 +173,7 @@ class FutuSource(DataSource):
             return df
         except Exception as exc:
             logger.debug("Futu K-line failed: %s", exc)
+            _handle_futu_failure()
             return pd.DataFrame()
         # Connection stays open — shared persistent
 
@@ -176,10 +187,12 @@ class FutuSource(DataSource):
             futu_sym = _futu_symbol(symbol, self.market)
             ret, df = ctx.get_market_snapshot([futu_sym])
             if ret != 0 or df is None or df.empty:
+                _handle_futu_failure()
                 return pd.DataFrame()
             df["symbol"] = symbol
             return df
         except Exception:
+            _handle_futu_failure()
             return pd.DataFrame()
         # Connection stays open — shared persistent
 
@@ -212,11 +225,13 @@ class FutuSource(DataSource):
             futu_sym = _futu_symbol(symbol, self.market)
             ret, df = ctx.get_capital_flow(futu_sym)
             if ret != 0 or df is None or df.empty:
+                _handle_futu_failure()
                 return pd.DataFrame()
             df = df.tail(days).copy()
             df["symbol"] = symbol
             return df
         except Exception:
+            _handle_futu_failure()
             return pd.DataFrame()
 
     def northbound_flow(self, days: int = 30) -> pd.DataFrame:

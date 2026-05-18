@@ -54,22 +54,12 @@ class BaostockSource(DataSource):
 
     name = "baostock"
 
-    def __init__(self):
-        self._logged_in = False
-
     def _ensure_login(self):
-        if not self._logged_in:
-            lg = bs.login()
-            if lg.error_code != "0":
-                logger.error("Baostock login failed: %s", lg.error_msg)
-                raise ConnectionError(f"Baostock login failed: {lg.error_msg}")
-            self._logged_in = True
-            logger.debug("Baostock logged in")
-
-    def _logout(self):
-        # Keep connection alive — Baostock socket breaks on rapid login/logout cycles.
-        # Let the connection be garbage-collected when the process exits.
-        pass
+        """Call bs.login() — idempotent, reconnects if socket died from idle timeout."""
+        lg = bs.login()
+        if lg.error_code != "0":
+            logger.error("Baostock login failed: %s", lg.error_msg)
+            raise ConnectionError(f"Baostock login failed: {lg.error_msg}")
 
     # ---- K-line ----
 

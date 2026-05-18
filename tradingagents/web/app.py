@@ -1125,7 +1125,7 @@ def run():
             except Exception:
                 pass
             # Quick probe of core sources so health bar shows status
-            _probe_all_now(["futu", "baostock", "efinance"])
+            _probe_all_now(["futu", "baostock", "efinance", "ib"])
             st.rerun()
 
     def _mc(label, value, fmt=None, color_class=""):

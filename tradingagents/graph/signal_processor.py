@@ -82,7 +82,8 @@ def extract_decision(decision_text: str, symbol: str = None, market: str = "a_st
             f"Rules:\n"
             f"1. action MUST be 买入, 持有, or 卖出 (Chinese only)\n"
             f"2. target_price in {currency_symbol}, null if not mentioned\n"
-            f"3. confidence and risk_score default to 0.7 and 0.5 if not clear\n\n"
+            f"3. confidence (0.3-0.95) must reflect conviction level from the report's evidence strength, not a default\n"
+            f"4. risk_score (0.1-0.9) must reflect downside risk severity, not a default\n\n"
             f"Report:\n{text[:3000]}"
         )
 
@@ -104,10 +105,17 @@ def extract_decision(decision_text: str, symbol: str = None, market: str = "a_st
                 except (ValueError, TypeError):
                     tp = _extract_price_from_text(text)
 
+            # Use LLM values, but validate they're in reasonable ranges
+            raw_conf = float(data.get("confidence", -1))
+            raw_risk = float(data.get("risk_score", -1))
+            # If LLM returned clearly bogus values (>0.95 or <0.2), use regex extraction
+            confidence = raw_conf if 0.2 <= raw_conf <= 0.95 else _extract_confidence(text)
+            risk_score = raw_risk if 0.1 <= raw_risk <= 0.9 else _extract_risk_score(text)
+
             return {
                 "action": _normalize_action(action),
-                "confidence": float(data.get("confidence", 0.7)),
-                "risk_score": float(data.get("risk_score", 0.5)),
+                "confidence": confidence,
+                "risk_score": risk_score,
                 "target_price": tp or _extract_price_from_text(text),
                 "reasoning": data.get("reasoning", text[:200]),
             }
@@ -118,10 +126,14 @@ def extract_decision(decision_text: str, symbol: str = None, market: str = "a_st
     action = _extract_action(text)
     tp = _extract_price_from_text(text)
 
+    # Try to extract confidence from text clues
+    confidence = _extract_confidence(text)
+    risk_score = _extract_risk_score(text)
+
     return {
         "action": action,
-        "confidence": 0.7,
-        "risk_score": 0.5,
+        "confidence": confidence,
+        "risk_score": risk_score,
         "target_price": tp,
         "reasoning": text[:300],
     }
@@ -136,6 +148,50 @@ def _extract_action(text: str) -> str:
         if keyword in tl:
             return action
     return "Hold"
+
+
+def _extract_confidence(text: str) -> float:
+    """Extract confidence from text cues. Falls back to 0.6 if no clues found."""
+    tl = text.lower()
+    # Explicit percentages
+    m = re.search(r'(?:confidence|置信度|把握)[^\d]*(\d{1,2}(?:\.\d)?)\s*%', tl)
+    if m:
+        val = float(m.group(1)) / 100
+        return max(0.3, min(0.95, val))
+    # Strong conviction phrases
+    if any(w in tl for w in ("强烈建议", "强烈推荐", "高确定性", "high conviction", "strong buy", "strong sell")):
+        return 0.85
+    if any(w in tl for w in ("明确看多", "明确看空", "clearly bullish", "clearly bearish")):
+        return 0.80
+    if any(w in tl for w in ("建议买入", "建议卖出", "recommend buy", "recommend sell")):
+        return 0.75
+    if any(w in tl for w in ("建议持有", "建议观望", "recommend hold", "wait and see")):
+        return 0.65
+    if any(w in tl for w in ("不确定", "风险较高", "uncertain", "high risk")):
+        return 0.55
+    return 0.65  # Neutral default — higher than 0.5 to avoid uniform look
+
+
+def _extract_risk_score(text: str) -> float:
+    """Extract risk score from text cues."""
+    tl = text.lower()
+    m = re.search(r'(?:risk|风险)[^\d]*(\d{1,2}(?:\.\d)?)\s*%', tl)
+    if m:
+        val = float(m.group(1)) / 100
+        return max(0.1, min(0.9, val))
+    if any(w in tl for w in ("高风险", "极高风险", "very high risk", "extreme risk")):
+        return 0.75
+    if any(w in tl for w in ("较高风险", "high risk", "elevated risk")):
+        return 0.60
+    if any(w in tl for w in ("中等风险", "moderate risk", "medium risk")):
+        return 0.45
+    if any(w in tl for w in ("较低风险", "低风险", "low risk", "minimal risk")):
+        return 0.30
+    if any(w in tl for w in ("防御性", "defensive", "conservative")):
+        return 0.35
+    # Inversely correlated with confidence: higher confidence → lower perceived risk
+    conf = _extract_confidence(text)
+    return max(0.3, min(0.7, 0.95 - conf + 0.2))
 
 
 def _extract_price_from_text(text: str) -> float | None:

@@ -106,25 +106,31 @@ atexit.register(_shutdown_ib_worker)
 
 
 def _ensure_worker():
-    """Start the IB worker thread if not already running."""
-    global _ib_thread, _ib_ready
+    """Start the IB worker thread. Returns True if worker is alive and connected."""
+    global _ib_thread, _ib_ready, _ib_instance
+    # Fast path: existing worker is alive
     if _ib_thread is not None and _ib_thread.is_alive():
-        return
+        return True
     with _ib_lock:
         if _ib_thread is not None and _ib_thread.is_alive():
-            return
-        _ib_ready = threading.Event()  # Fresh event per attempt
+            return True
+        _ib_ready = threading.Event()
         _ib_thread = threading.Thread(target=_ib_worker, args=(_DEFAULT_HOST, _DEFAULT_PORT), daemon=True, name="ib-worker")
         _ib_thread.start()
+        # Wait for worker to signal ready (connected) or die (connect failed)
         _ib_ready.wait(timeout=10)
-        # If worker died immediately (connect failed), mark thread as dead
-        if not _ib_thread.is_alive():
-            _ib_thread = None
+        if _ib_instance is not None and _ib_thread.is_alive():
+            return True
+        # Worker failed to connect — clean up and return False
+        _ib_thread = None
+        return False
 
 
 def _run_in_ib_thread(task_fn) -> Any:
-    """Execute a function on the IB worker thread and return its result."""
-    _ensure_worker()
+    """Execute a function on the IB worker thread and return its result.
+    Raises ConnectionError immediately if worker is not connected."""
+    if not _ensure_worker():
+        raise ConnectionError("IB not connected — Gateway may be offline")
     done = threading.Event()
     done.result = None
     _task_queue.put((task_fn, done))

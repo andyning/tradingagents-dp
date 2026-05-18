@@ -76,17 +76,19 @@ def _ib_worker(host: str, port: int):
         _ib_instance = None
         logger.debug("IB worker failed to start: %s", exc)
     finally:
-        try:
-            if _ib_instance and _ib_instance.isConnected():
-                _ib_instance.disconnect()
-        except Exception:
-            pass
         _ib_instance = None
+        _ib_ready.set()  # Ensure callers unblock even on unexpected exit
         try:
             loop.stop()
+        except Exception:
+            pass
+        try:
             loop.close()
         except Exception:
             pass
+        # Mark thread as dead so _ensure_worker will restart next time
+        global _ib_thread
+        _ib_thread = None
 
 
 def _shutdown_ib_worker():
@@ -95,6 +97,7 @@ def _shutdown_ib_worker():
     if _ib_thread and _ib_thread.is_alive():
         _task_queue.put((None, threading.Event()))
         _ib_thread.join(timeout=3)
+    _ib_thread = None
 
 
 # Register shutdown on module cleanup
@@ -110,10 +113,13 @@ def _ensure_worker():
     with _ib_lock:
         if _ib_thread is not None and _ib_thread.is_alive():
             return
-        _ib_ready.clear()
+        _ib_ready = threading.Event()  # Fresh event per attempt
         _ib_thread = threading.Thread(target=_ib_worker, args=(_DEFAULT_HOST, _DEFAULT_PORT), daemon=True, name="ib-worker")
         _ib_thread.start()
         _ib_ready.wait(timeout=10)
+        # If worker died immediately (connect failed), mark thread as dead
+        if not _ib_thread.is_alive():
+            _ib_thread = None
 
 
 def _run_in_ib_thread(task_fn) -> Any:

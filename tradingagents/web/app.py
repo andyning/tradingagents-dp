@@ -5,6 +5,10 @@ Clean light theme, real-time step progress, token tracking, dashboard overview.
 
 from __future__ import annotations
 
+# Print loading indicator so user sees something during Streamlit bootstrap
+import sys as _sys_boot
+print("[TradingAgents] Loading...", file=_sys_boot.stderr, flush=True)
+
 import json
 import threading
 import time
@@ -13,6 +17,7 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+print("[TradingAgents] Streamlit loaded, starting UI...", file=_sys_boot.stderr, flush=True)
 
 warnings.filterwarnings("ignore", category=ResourceWarning)
 warnings.filterwarnings("ignore", message=".*unclosed database.*")
@@ -201,9 +206,16 @@ def _probe_all_now(keys: list[str] | None = None):
 
 # ── Initialization — no probes, just mark ready ────────────────────────
 def _init_data_sources():
-    """Minimal init — health probes run on demand, not at startup."""
+    """Show brief startup indicator — probes run on demand, not at startup."""
     if st.session_state.get("_init_done"):
         return
+    init_ph = st.empty()
+    with init_ph.container():
+        st.markdown("###  TradingAgents starting...")
+        st.caption("UI ready — click Refresh to check data sources")
+        import time as _time2
+        _time2.sleep(0.3)
+    init_ph.empty()
     st.session_state._init_done = True
 
 

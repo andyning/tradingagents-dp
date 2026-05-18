@@ -18,10 +18,22 @@ def setup_logging() -> None:
     level = getattr(logging, settings.log_level.upper(), logging.INFO)
 
     # Configure stdlib logging to pipe through structlog
+    # Stream to stderr (terminal) AND to a file for background monitoring
+    handlers: list[logging.Handler] = [logging.StreamHandler(sys.stderr)]
+    try:
+        from pathlib import Path
+        log_dir = Path.home() / ".tradingagents" / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        fh = logging.FileHandler(log_dir / "debug.log", encoding="utf-8")
+        fh.setLevel(logging.DEBUG)
+        handlers.append(fh)
+    except Exception:
+        pass  # File logging is best-effort
+
     logging.basicConfig(
         format="%(message)s",
-        stream=sys.stderr,
         level=level,
+        handlers=handlers,
     )
 
     shared_processors = [

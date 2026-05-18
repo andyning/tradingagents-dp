@@ -1026,6 +1026,8 @@ def run():
         st.divider()
         can_run = not st.session_state._running and market is not None
         if st.button("▶  Run Analysis", type="primary", disabled=not can_run, use_container_width=True):
+            # Quick health probe before starting pipeline
+            _probe_all_now(["futu", "baostock", "efinance", "ib"])
             st.session_state._running = True
             st.session_state._done = False
             st.session_state._from_cache = False

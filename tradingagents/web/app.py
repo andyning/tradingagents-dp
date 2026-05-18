@@ -5,9 +5,11 @@ Clean light theme, real-time step progress, token tracking, dashboard overview.
 
 from __future__ import annotations
 
-# Print loading indicator so user sees something during Streamlit bootstrap
-import sys as _sys_boot
-print("[TradingAgents] Loading...", file=_sys_boot.stderr, flush=True)
+# Print loading indicator ONCE (not on every Streamlit rerun)
+import sys as _sys_boot, os as _os_boot
+if _os_boot.environ.get("_TA_BOOTED") != "1":
+    _os_boot.environ["_TA_BOOTED"] = "1"
+    print("[TradingAgents] Loading...", file=_sys_boot.stderr, flush=True)
 
 import json
 import threading
@@ -17,7 +19,10 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
-print("[TradingAgents] Streamlit loaded, starting UI...", file=_sys_boot.stderr, flush=True)
+
+if _os_boot.environ.get("_TA_BOOTED_UI") != "1":
+    _os_boot.environ["_TA_BOOTED_UI"] = "1"
+    print("[TradingAgents] Streamlit loaded, starting UI...", file=_sys_boot.stderr, flush=True)
 
 warnings.filterwarnings("ignore", category=ResourceWarning)
 warnings.filterwarnings("ignore", message=".*unclosed database.*")

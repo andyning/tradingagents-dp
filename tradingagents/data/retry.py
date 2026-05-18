@@ -3,10 +3,14 @@
 Every data fetch is executed through `with_fallback`, which tries each
 source in order, applying retries per source and Pydantic validation on
 the result.  If all sources fail, `AllSourcesExhausted` is raised.
+
+Each source call is wrapped in a 10-second timeout to prevent any single
+hung source from freezing the UI or pipeline indefinitely.
 """
 
 from __future__ import annotations
 
+import concurrent.futures
 import time
 from typing import Any, Callable, TypeVar
 
@@ -22,6 +26,18 @@ logger = get_logger(__name__)
 T = TypeVar("T")
 RETRY_BACKOFF = (1, 2)  # seconds — quick retry then give up
 MAX_RETRIES = 1
+SOURCE_TIMEOUT = 10  # seconds — max time any single source call can block
+
+
+def _call_with_timeout(fn: Callable[..., T], timeout: float = SOURCE_TIMEOUT, *args, **kwargs) -> T:
+    """Call fn in a thread with a timeout. Raises TimeoutError if exceeded.
+
+    NOTE: The thread may continue running after timeout — but the fallback
+    chain moves on immediately. This prevents a hung source from blocking the pipeline.
+    """
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+        fut = ex.submit(fn, *args, **kwargs)
+        return fut.result(timeout=timeout)
 
 
 def with_fallback(
@@ -58,7 +74,7 @@ def with_fallback(
     for source_name, fetch_fn in sources:
         for attempt in range(MAX_RETRIES + 1):
             try:
-                df = fetch_fn(**params)
+                df = _call_with_timeout(fetch_fn, SOURCE_TIMEOUT, **params)
             except Exception as exc:
                 last_error = exc
                 logger.warning(

@@ -10,6 +10,7 @@ Supports A-shares (SH/SZ), HK stocks, and US stocks.
 from __future__ import annotations
 
 import threading
+import time
 from datetime import date
 
 import pandas as pd
@@ -36,14 +37,20 @@ def _futu_symbol(symbol: str, market: str) -> str:
 # Shared persistent Futu connection
 _futu_ctx = None
 _futu_lock = threading.Lock()
-_FUTU_DOWN = False  # Fast-fail flag: set True after first failed connect attempt
+_FUTU_DOWN = False  # Fast-fail flag
+_FUTU_DOWN_SINCE = 0.0  # Timestamp when marked DOWN (for TTL-based retry)
+_FUTU_DOWN_TTL = 60  # Seconds before auto-retry
 
 
 def _get_shared_futu():
-    """Get or create a persistent Futu OpenQuoteContext. Fast-fails if known DOWN."""
-    global _futu_ctx, _FUTU_DOWN
+    """Get or create a persistent Futu OpenQuoteContext. Auto-retries after TTL."""
+    global _futu_ctx, _FUTU_DOWN, _FUTU_DOWN_SINCE
     if _FUTU_DOWN:
-        return None
+        if time.time() - _FUTU_DOWN_SINCE < _FUTU_DOWN_TTL:
+            return None
+        # TTL expired — allow one retry
+        _FUTU_DOWN = False
+        logger.debug("Futu DOWN TTL expired, retrying connection")
     if _futu_ctx is not None:
         try:
             return _futu_ctx
@@ -62,7 +69,8 @@ def _get_shared_futu():
         s.close()
         if not port_open:
             _FUTU_DOWN = True
-            logger.debug("Futu port 11111 not open — fast-failing")
+            _FUTU_DOWN_SINCE = time.time()
+            logger.debug("Futu port 11111 not open — fast-failing (%ds TTL)", _FUTU_DOWN_TTL)
             return None
         try:
             from futu import OpenQuoteContext
@@ -71,7 +79,8 @@ def _get_shared_futu():
             return _futu_ctx
         except Exception:
             _FUTU_DOWN = True
-            logger.debug("Futu unavailable — fast-failing future attempts")
+            _FUTU_DOWN_SINCE = time.time()
+            logger.debug("Futu unavailable — fast-failing (%ds TTL)", _FUTU_DOWN_TTL)
             return None
 
 

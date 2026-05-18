@@ -48,15 +48,26 @@ def _ib_worker(host: str, port: int):
 
         while True:
             try:
-                task, done_event = _task_queue.get(timeout=1.0)  # Check for shutdown every 1s
+                task, done_event = _task_queue.get(timeout=1.0)
             except queue.Empty:
+                # Heartbeat: check connection health
+                if not ib.isConnected():
+                    logger.debug("IB disconnected — reconnecting...")
+                    try:
+                        ib.connect(host, port, clientId=_CLIENT_ID, timeout=5)
+                        logger.debug("IB reconnected")
+                    except Exception:
+                        pass  # Will retry on next heartbeat
                 continue
-            if task is None:  # Shutdown signal
+            if task is None:
                 break
             try:
                 result = task(ib)
                 done_event.result = result
             except Exception as exc:
+                # Check if this was a disconnection
+                if not ib.isConnected():
+                    logger.debug("IB task failed due to disconnect — will reconnect")
                 done_event.result = exc
             finally:
                 done_event.set()

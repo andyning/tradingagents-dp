@@ -61,13 +61,16 @@ class Settings(BaseSettings):
     # ---- checkpoint ----
     checkpoint_enabled: bool = False
 
+    # ---- proxy (optional — required for Eastmoney outside mainland China) ----
+    proxy_url: str = ""  # e.g. "http://host.docker.internal:7890" or "socks5h://127.0.0.1:10808"
+
     # ---- data sources ----
-    a_stock_primary: str = "baostock"
-    a_stock_secondary: str = "efinance"
-    hk_stock_primary: str = "efinance"
-    hk_stock_secondary: str = "yfinance"
-    us_stock_primary: str = "yfinance"
-    us_stock_secondary: str = "efinance"
+    a_stock_primary: str = "tencent"
+    a_stock_secondary: str = "eastmoney"
+    hk_stock_primary: str = "tencent"
+    hk_stock_secondary: str = "eastmoney"
+    us_stock_primary: str = "yahoo"
+    us_stock_secondary: str = "eastmoney"
 
     # ---- backtesting ----
     backtest_initial_cash: float = 100_000.0

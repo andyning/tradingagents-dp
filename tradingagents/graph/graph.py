@@ -7,8 +7,6 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-import yfinance as yf
-
 from tradingagents.config import get_settings
 from tradingagents.graph.builder import build_graph
 from tradingagents.graph.state import AgentState

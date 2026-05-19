@@ -121,22 +121,27 @@ def _probe_ib():
         return False
 
 
-def _probe_baostock():
+def _probe_tencent():
+    """Probe Tencent Finance HTTP API — fast ping to qt.gtimg.cn."""
     try:
-        import io, contextlib
-        import baostock as bs
-        with contextlib.redirect_stdout(io.StringIO()):
-            lg = bs.login()
-            # Do NOT logout — Baostock socket breaks on rapid login/logout cycles
-            return lg.error_code == "0"
+        import requests
+        resp = requests.get("https://qt.gtimg.cn/q=sh600519", timeout=5)
+        return resp.status_code == 200 and "~" in resp.text
     except Exception:
         return False
 
 
-def _probe_efinance():
+def _probe_eastmoney():
+    """Probe Eastmoney HTTP API — verify K-line endpoint responds."""
     try:
-        import efinance as ef
-        return hasattr(ef, "stock")
+        import requests
+        resp = requests.get(
+            "https://push2his.eastmoney.com/api/qt/stock/kline/get",
+            params={"secid": "1.600519", "klt": 101, "lmt": 1,
+                    "fields1": "f1", "fields2": "f51"},
+            timeout=5,
+        )
+        return resp.status_code == 200
     except Exception:
         return False
 
@@ -167,16 +172,15 @@ HEALTH_HINTS = {
     "llm":       "Check DEEPSEEK_API_KEY in .env file and network connectivity.",
     "futu":      "Launch Futu OpenD (free download from futunn.com). It runs in system tray.",
     "ib":        "Start IB Gateway and log in to your Interactive Brokers account.",
-    "baostock":  "Check internet connection. Baostock requires no registration.",
-    "efinance":  "Check internet connection. Efinance requires no registration.",
-    "akshare":   "Check internet connection. akshare may be blocked by firewall.",
-    "yfinance":  "Yahoo Finance may be blocked in mainland China. Try VPN.",
+    "tencent":    "Tencent Finance — fast, free, always available in China.",
+    "eastmoney":  "Eastmoney — free, comprehensive A/HK/US market data.",
+    "yahoo":      "Yahoo Finance — may be blocked in mainland China. Try VPN.",
 }
 
 HEALTH_CATEGORIES = {
     "LLM":        ["llm"],
-    "A-Stock":    ["futu", "baostock", "efinance", "akshare"],
-    "US/HK":      ["ib", "yfinance"],
+    "A-Stock":    ["tencent", "eastmoney", "futu"],
+    "US/HK":      ["yahoo", "eastmoney", "ib", "futu"],
 }
 
 def _update_health(key: str, ok: bool):
@@ -187,9 +191,9 @@ def _probe_all_now(keys: list[str] | None = None):
     """Probe multiple sources concurrently with a 5s overall timeout.
     If keys is None, probes all known sources."""
     if keys is None:
-        keys = ["llm", "futu", "ib", "baostock", "efinance"]
-    probes_map = {"llm": _probe_llm, "futu": _probe_futu, "ib": _probe_ib,
-                  "baostock": _probe_baostock, "efinance": _probe_efinance}
+        keys = ["llm", "tencent", "eastmoney", "futu", "ib"]
+    probes_map = {"llm": _probe_llm, "tencent": _probe_tencent,
+                  "eastmoney": _probe_eastmoney, "futu": _probe_futu, "ib": _probe_ib}
     import concurrent.futures
     results = {}
     try:
@@ -259,9 +263,9 @@ def _run_pipeline(symbol: str, trade_date: str, market: str, depth: str, data_wi
 def _fetch_stock_data(symbol: str, market: str, days: int = 30):
     """Return (info_dict, kline_dataframe). Single network call for both."""
     # Fast-fail: skip fetch if all relevant sources are known DOWN
-    _relevant = {"a_stock": ["futu", "baostock", "efinance"],
-                 "hk_stock": ["futu", "efinance", "yfinance"],
-                 "us_stock": ["futu", "efinance", "yfinance"]}.get(market, [])
+    _relevant = {"a_stock": ["tencent", "eastmoney", "futu"],
+                 "hk_stock": ["tencent", "eastmoney", "futu"],
+                 "us_stock": ["yahoo", "eastmoney", "futu"]}.get(market, [])
     _all_down = all(st.session_state.get(f"_health_{k}", "?") == "DOWN" for k in _relevant)
     if _all_down:
         return {"symbol": symbol, "market": market, "name": symbol}, pd.DataFrame()
@@ -375,72 +379,80 @@ def _enrich_stock_info(info: dict, symbol: str, market: str) -> dict:
 
 
 def _lookup_stock_name(symbol: str, market: str) -> str:
-    """Look up company name from available data sources."""
+    """Look up company name from HTTP sources (Tencent / Eastmoney)."""
     s = symbol.strip().upper()
-    # A-stock: Baostock → Futu
+    # A-stock: Tencent → Eastmoney → Futu
     if market == "a_stock":
         try:
-            import baostock as bs
-            prefix = "sh." if s.startswith("6") else "sz."
-            bs.login()
-            rs = bs.query_stock_basic(code=f"{prefix}{s}")
-            while rs.next():
-                row = rs.get_row_data()
-                if len(row) > 1 and row[1] and row[1] != s:
-                    bs.logout()
-                    return str(row[1])
-            bs.logout()
+            from tradingagents.data.http.tencent import fetch_quote, normalize_cn_code
+            q = fetch_quote(normalize_cn_code(s))
+            if q and q.get("name") and q["name"] != s:
+                return str(q["name"])
+        except Exception:
+            pass
+        try:
+            from tradingagents.data.http.eastmoney import fetch_snapshot, _a_secid
+            snap = fetch_snapshot(_a_secid(s))
+            if snap and snap.get("name") and snap["name"] != s:
+                return str(snap["name"])
         except Exception:
             pass
         try:
             from tradingagents.data.sources.futu import _get_shared_futu
             ctx = _get_shared_futu()
             ret, df = ctx.get_market_snapshot([f"{'SH' if s.startswith('6') else 'SZ'}.{s}"])
-            # Shared connection — kept open
             if ret == 0 and df is not None and not df.empty:
                 name = df.iloc[0].get("name", "")
                 if name and name != s:
                     return str(name)
         except Exception:
             pass
-    # HK stock: Futu → yfinance
+    # HK stock: Tencent → Eastmoney → Futu
     elif market == "hk_stock":
+        try:
+            from tradingagents.data.http.tencent import fetch_quote, normalize_hk_code
+            q = fetch_quote(normalize_hk_code(s))
+            if q and q.get("name") and q["name"] != s:
+                return str(q["name"])
+        except Exception:
+            pass
+        try:
+            from tradingagents.data.http.eastmoney import fetch_snapshot, _hk_secid
+            snap = fetch_snapshot(_hk_secid(s))
+            if snap and snap.get("name") and snap["name"] != s:
+                return str(snap["name"])
+        except Exception:
+            pass
         try:
             from tradingagents.data.sources.futu import _get_shared_futu
             ctx = _get_shared_futu()
             ret, df = ctx.get_market_snapshot([f"HK.{s:0>5}"])
-            # Shared connection — kept open
             if ret == 0 and df is not None and not df.empty:
                 name = df.iloc[0].get("name", "")
                 if name and name != s:
                     return str(name)
         except Exception:
             pass
-        try:
-            import yfinance as yf
-            t = yf.Ticker(f"{s:0>4}.HK")
-            info = t.info
-            name = info.get("longName") or info.get("shortName") or ""
-            if name and name != s:
-                return str(name)
-        except Exception:
-            pass
-    # US stock: yfinance → Futu
+    # US stock: Yahoo HTTP → Eastmoney → Futu
     elif market == "us_stock":
         try:
-            import yfinance as yf
-            t = yf.Ticker(s)
-            info = t.info
-            name = info.get("longName") or info.get("shortName") or ""
-            if name and name != s and len(name) < 50:
-                return str(name)
+            from tradingagents.data.http.yahoo import fetch_quote
+            q = fetch_quote(s, "us_stock")
+            if q and q.get("name") and q["name"] != s and len(q["name"]) < 50:
+                return str(q["name"])
+        except Exception:
+            pass
+        try:
+            from tradingagents.data.http.eastmoney import fetch_snapshot, _us_secid
+            snap = fetch_snapshot(_us_secid(s))
+            if snap and snap.get("name") and snap["name"] != s:
+                return str(snap["name"])
         except Exception:
             pass
         try:
             from tradingagents.data.sources.futu import _get_shared_futu
             ctx = _get_shared_futu()
             ret, df = ctx.get_market_snapshot([f"US.{s}"])
-            # Shared connection — kept open
             if ret == 0 and df is not None and not df.empty:
                 name = df.iloc[0].get("name", "")
                 if name and name != s:
@@ -1054,7 +1066,7 @@ def run():
         can_run = not st.session_state._running and market is not None
         if st.button("▶  Run Analysis", type="primary", disabled=not can_run, use_container_width=True):
             # Quick health probe before starting pipeline
-            _probe_all_now(["futu", "baostock", "efinance", "ib"])
+            _probe_all_now(["tencent", "eastmoney", "futu", "ib"])
             st.session_state._running = True
             st.session_state._done = False
             st.session_state._from_cache = False
@@ -1146,7 +1158,7 @@ def run():
         if st.button("Refresh", key="refresh_data_btn", help="Refresh stock data & K-line chart"):
             _fetch_stock_data.clear()
             # Reset data source health + fast-fail flags for fresh detection
-            for k in ("futu", "ib", "baostock", "akshare", "efinance", "yfinance"):
+            for k in ("tencent", "eastmoney", "yahoo", "futu", "ib"):
                 st.session_state.pop(f"_health_{k}", None)
             try:
                 from tradingagents.data.sources.futu import _reset_futu_flag
@@ -1154,7 +1166,7 @@ def run():
             except Exception:
                 pass
             # Quick probe of core sources so health bar shows status
-            _probe_all_now(["futu", "baostock", "efinance", "ib"])
+            _probe_all_now(["tencent", "eastmoney", "futu", "ib"])
             st.rerun()
 
     def _mc(label, value, fmt=None, color_class=""):

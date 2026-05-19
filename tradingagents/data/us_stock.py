@@ -32,7 +32,7 @@ def get_kline_daily(
     return with_fallback(
         symbol, "kline_daily_us",
         sources=[
-            ("ib", lambda **kw: _ib.kline_daily(**kw)),
+            ("ib", lambda **kw: _ib.kline_daily(**kw), None),  # IB has its own timeouts
             ("futu", lambda **kw: _futu.kline_daily(**kw)),
             ("akshare", lambda **kw: _akshare.us_kline_daily(**kw)),
             ("efinance", lambda **kw: _efinance.kline_daily(**kw)),

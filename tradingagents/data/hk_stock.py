@@ -33,7 +33,7 @@ def get_kline_daily(
         symbol, "kline_daily_hk",
         sources=[
             ("futu", lambda **kw: _futu.kline_daily(**kw)),
-            ("ib", lambda **kw: _ib.kline_daily(**kw)),
+            ("ib", lambda **kw: _ib.kline_daily(**kw), None),  # IB has its own timeouts
             ("akshare", lambda **kw: _akshare.hk_kline_daily(**kw)),
             ("efinance", lambda **kw: _efinance.kline_daily(**kw)),
             ("yfinance", lambda **kw: _yfinance.kline_daily(**kw)),
@@ -47,7 +47,7 @@ def get_news(symbol: str, limit: int = 20) -> pd.DataFrame:
     return with_fallback(
         symbol, "news_hk",
         sources=[
-            ("ib", lambda **kw: _ib.news(**kw)),
+            ("ib", lambda **kw: _ib.news(**kw), None),  # IB has its own timeouts
             ("yfinance", lambda **kw: _yfinance.news(**kw)),
         ],
         params={"symbol": symbol, "limit": limit},

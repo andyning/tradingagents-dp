@@ -26,7 +26,7 @@ logger = get_logger(__name__)
 T = TypeVar("T")
 RETRY_BACKOFF = (1, 2)  # seconds — quick retry then give up
 MAX_RETRIES = 1
-SOURCE_TIMEOUT = 10  # seconds — max time any single source call can block
+SOURCE_TIMEOUT = 20  # seconds — enough for slow sources like IB historical data
 
 
 def _call_with_timeout(fn: Callable[..., T], timeout: float = SOURCE_TIMEOUT, *args, **kwargs) -> T:
@@ -71,10 +71,19 @@ def with_fallback(
 
     last_error: Exception | None = None
 
-    for source_name, fetch_fn in sources:
+    for source_entry in sources:
+        # Supports both ("name", fn) and ("name", fn, timeout) formats
+        if len(source_entry) == 3:
+            source_name, fetch_fn, src_timeout = source_entry  # type: ignore[misc]
+        else:
+            source_name, fetch_fn = source_entry  # type: ignore[misc]
+            src_timeout = SOURCE_TIMEOUT
         for attempt in range(MAX_RETRIES + 1):
             try:
-                df = _call_with_timeout(fetch_fn, SOURCE_TIMEOUT, **params)
+                if src_timeout is None:
+                    df = fetch_fn(**params)  # No external timeout
+                else:
+                    df = _call_with_timeout(fetch_fn, src_timeout, **params)
             except Exception as exc:
                 last_error = exc
                 logger.warning(

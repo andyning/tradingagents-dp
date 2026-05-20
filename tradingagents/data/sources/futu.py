@@ -58,7 +58,12 @@ _FUTU_DOWN_TTL = 60  # Seconds before auto-retry
 
 
 def _get_shared_futu():
-    """Get or create a persistent Futu OpenQuoteContext. Auto-retries after TTL."""
+    """Get or create a persistent Futu OpenQuoteContext. Auto-retries after TTL.
+    Returns None if TA_FUTU_ENABLED != '1' (disabled in settings).
+    """
+    import os as _os
+    if _os.environ.get("TA_FUTU_ENABLED", "0") != "1":
+        return None
     global _futu_ctx, _FUTU_DOWN, _FUTU_DOWN_SINCE
     if _FUTU_DOWN:
         if time.time() - _FUTU_DOWN_SINCE < _FUTU_DOWN_TTL:

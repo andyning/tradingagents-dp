@@ -106,7 +106,12 @@ atexit.register(_shutdown_ib_worker)
 
 
 def _ensure_worker():
-    """Start the IB worker thread. Returns True if worker is alive and connected."""
+    """Start the IB worker thread. Returns True if worker is alive and connected.
+    Returns None if TA_IB_ENABLED != '1' (disabled in settings).
+    """
+    import os as _os
+    if _os.environ.get("TA_IB_ENABLED", "0") != "1":
+        return None
     global _ib_thread, _ib_ready, _ib_instance
     # Fast path: existing worker is alive
     if _ib_thread is not None and _ib_thread.is_alive():

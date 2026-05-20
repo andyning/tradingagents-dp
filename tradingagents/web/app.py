@@ -142,6 +142,8 @@ st.markdown("""<style>
 # ── Data source probes (single-threaded, each has internal timeout) ────
 
 def _probe_futu():
+    if not st.session_state.get("_futu_enabled", False):
+        return None  # disabled
     try:
         from tradingagents.data.sources.futu import _get_shared_futu
         return _get_shared_futu() is not None
@@ -150,6 +152,8 @@ def _probe_futu():
 
 
 def _probe_ib():
+    if not st.session_state.get("_ib_enabled", False):
+        return None  # disabled
     try:
         from tradingagents.data.sources.ib import _ensure_worker
         _ensure_worker()
@@ -230,9 +234,12 @@ HEALTH_CATEGORIES = {
     "US/HK":      ["yahoo", "eastmoney", "ib", "futu"],
 }
 
-def _update_health(key: str, ok: bool):
+def _update_health(key: str, ok: bool | None):
     """Thread-safe update of a single health status."""
-    st.session_state[f"_health_{key}"] = "OK" if ok else "DOWN"
+    if ok is None:
+        st.session_state[f"_health_{key}"] = "DISABLED"
+    else:
+        st.session_state[f"_health_{key}"] = "OK" if ok else "DOWN"
 
 def _probe_all_now(keys: list[str] | None = None):
     """Probe multiple sources concurrently with a 5s overall timeout.
@@ -1122,6 +1129,10 @@ def _render_health_bar():
                 lbl_color = "#FF5252"
                 label = "OFF"
                 label = f'<span title="{hint}" style="cursor:help">{label}</span>'
+            elif status == "DISABLED":
+                dot = '<span style="color:#d9d9d9;font-size:1rem">○</span>'
+                lbl_color = "#bfbfbf"
+                label = "OFF"
             else:
                 dot = '<span class="health-dot-unknown">●</span>'
                 lbl_color = "#bfbfbf"
@@ -1159,6 +1170,14 @@ def run():
     if "_cached_result" not in st.session_state: st.session_state._cached_result = None
     if "_cached_symbol" not in st.session_state: st.session_state._cached_symbol = ""
     if "_cached_depth" not in st.session_state: st.session_state._cached_depth = ""
+    if "_settings_open" not in st.session_state: st.session_state._settings_open = False
+    if "_futu_enabled" not in st.session_state: st.session_state._futu_enabled = False
+    if "_ib_enabled" not in st.session_state: st.session_state._ib_enabled = False
+
+    # Sync session state to env for data layer access
+    import os as _os_env
+    _os_env.environ["TA_FUTU_ENABLED"] = "1" if st.session_state._futu_enabled else "0"
+    _os_env.environ["TA_IB_ENABLED"] = "1" if st.session_state._ib_enabled else "0"
 
     # ═══ SIDEBAR ═══
     with st.sidebar:
@@ -1367,14 +1386,13 @@ def run():
     # System Health Dashboard
     _render_health_bar()
 
-    # Stock header + refresh
-    rcol1, rcol2 = st.columns([25, 2])
+    # Stock header + refresh + settings
+    rcol1, rcol2, rcol3 = st.columns([23, 2, 2])
     with rcol1:
         st.caption(f"Data as of {_dt.datetime.now().strftime('%H:%M:%S')} · 30 min cache")
     with rcol2:
         if st.button("Refresh", key="refresh_data_btn", help="Refresh stock data & K-line chart"):
             _fetch_stock_data.clear()
-            # Reset data source health + fast-fail flags for fresh detection
             for k in ("tencent", "eastmoney", "yahoo", "futu", "ib"):
                 st.session_state.pop(f"_health_{k}", None)
             try:
@@ -1382,9 +1400,35 @@ def run():
                 _reset_futu_flag()
             except Exception:
                 pass
-            # Quick probe of core sources so health bar shows status
             _probe_all_now(["llm", "tencent", "eastmoney", "yahoo", "futu", "ib"])
             st.rerun()
+    with rcol3:
+        if st.button("⚙", key="settings_btn", help="Settings"):
+            st.session_state._settings_open = not st.session_state._settings_open
+            st.rerun()
+
+    # ── Settings Panel ──
+    if st.session_state._settings_open:
+        with st.container():
+            st.markdown("---")
+            st.markdown("### ⚙ Settings")
+            sc1, sc2 = st.columns(2)
+            with sc1:
+                new_futu = st.toggle("Futu OpenD", value=st.session_state._futu_enabled,
+                                     help="Enable Futu OpenD for enriched A/HK/US stock data. Requires Futu OpenD running on port 11111.")
+                if new_futu != st.session_state._futu_enabled:
+                    st.session_state._futu_enabled = new_futu
+                    st.session_state.pop("_health_futu", None)
+                    st.rerun()
+            with sc2:
+                new_ib = st.toggle("IB Gateway", value=st.session_state._ib_enabled,
+                                   help="Enable Interactive Brokers for US/HK stock data. Requires IB Gateway/TWS running on port 4002.")
+                if new_ib != st.session_state._ib_enabled:
+                    st.session_state._ib_enabled = new_ib
+                    st.session_state.pop("_health_ib", None)
+                    st.rerun()
+            st.caption("Toggles take effect on next Refresh or Run Analysis. Both default to OFF.")
+            st.markdown("---")
 
     def _mc(label, value, fmt=None, color_class=""):
         if value is None or (isinstance(value, float) and value != value):

@@ -28,6 +28,9 @@ _futu = None
 
 
 def _get_futu():
+    import os as _os
+    if _os.environ.get("TA_FUTU_ENABLED", "0") != "1":
+        return None
     global _futu
     if _futu is None:
         try:

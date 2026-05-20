@@ -25,6 +25,9 @@ _ib = None
 
 
 def _get_futu():
+    import os as _os
+    if _os.environ.get("TA_FUTU_ENABLED", "0") != "1":
+        return None
     global _futu
     if _futu is None:
         try:
@@ -36,6 +39,9 @@ def _get_futu():
 
 
 def _get_ib():
+    import os as _os
+    if _os.environ.get("TA_IB_ENABLED", "0") != "1":
+        return None
     global _ib
     if _ib is None:
         try:

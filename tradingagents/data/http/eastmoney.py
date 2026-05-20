@@ -162,7 +162,7 @@ def fetch_kline(
         return results
 
     except Exception:
-        logger.debug("Eastmoney kline failed for %s klt=%s", secid, klt, exc_info=True)
+        logger.debug("Eastmoney kline failed for %s klt=%s", secid, klt)
         return []
 
 
@@ -216,7 +216,7 @@ def fetch_snapshot(secid: str, timeout: float = 10) -> Optional[dict]:
             "timestamp": datetime.now(),
         }
     except Exception:
-        logger.debug("Eastmoney snapshot failed for %s", secid, exc_info=True)
+        logger.debug("Eastmoney snapshot failed for %s", secid)
         return None
 
 
@@ -284,7 +284,7 @@ def fetch_fund_flow(secid: str, days: int = 30, timeout: float = 15) -> pd.DataF
                 continue
         return pd.DataFrame(rows)
     except Exception:
-        logger.debug("Eastmoney fund flow failed for %s", secid, exc_info=True)
+        logger.debug("Eastmoney fund flow failed for %s", secid)
         return pd.DataFrame()
 
 
@@ -322,7 +322,7 @@ def fetch_news_eastmoney(symbol: str, limit: int = 20, timeout: float = 15) -> p
             })
         return pd.DataFrame(rows)
     except Exception:
-        logger.debug("Eastmoney news failed for %s", symbol, exc_info=True)
+        logger.debug("Eastmoney news failed for %s", symbol)
         return pd.DataFrame()
 
 
@@ -360,7 +360,7 @@ def fetch_news_sina(symbol: str, limit: int = 20, timeout: float = 15) -> pd.Dat
                 })
         return pd.DataFrame(rows)
     except Exception:
-        logger.debug("Sina news failed for %s", symbol, exc_info=True)
+        logger.debug("Sina news failed for %s", symbol)
         return pd.DataFrame()
 
 
@@ -404,7 +404,7 @@ def fetch_hot_stocks(limit: int = 20, timeout: float = 15) -> pd.DataFrame:
             })
         return pd.DataFrame(rows)
     except Exception:
-        logger.debug("Eastmoney hot stocks failed", exc_info=True)
+        logger.debug("Eastmoney hot stocks failed")
         return pd.DataFrame()
 
 
@@ -467,7 +467,7 @@ def fetch_northbound_flow(days: int = 30, timeout: float = 15) -> pd.DataFrame:
         return pd.DataFrame(rows)
 
     except Exception:
-        logger.debug("Eastmoney northbound flow failed", exc_info=True)
+        logger.debug("Eastmoney northbound flow failed")
         return pd.DataFrame()
 
 
@@ -515,7 +515,7 @@ def fetch_dragon_tiger(symbol: str, days: int = 30, timeout: float = 15) -> pd.D
             })
         return pd.DataFrame(rows)
     except Exception:
-        logger.debug("Eastmoney dragon tiger failed for %s", symbol, exc_info=True)
+        logger.debug("Eastmoney dragon tiger failed for %s", symbol)
         return pd.DataFrame()
 
 
@@ -560,7 +560,7 @@ def fetch_lockup_expiry(symbol: str, months: int = 6, timeout: float = 15) -> pd
             })
         return pd.DataFrame(rows)
     except Exception:
-        logger.debug("Eastmoney lockup expiry failed for %s", symbol, exc_info=True)
+        logger.debug("Eastmoney lockup expiry failed for %s", symbol)
         return pd.DataFrame()
 
 
@@ -601,7 +601,7 @@ def fetch_profit_forecast(symbol: str, timeout: float = 15) -> pd.DataFrame:
             })
         return pd.DataFrame(rows)
     except Exception:
-        logger.debug("Eastmoney profit forecast failed for %s", symbol, exc_info=True)
+        logger.debug("Eastmoney profit forecast failed for %s", symbol)
         return pd.DataFrame()
 
 
@@ -643,7 +643,7 @@ def fetch_insider_transactions(symbol: str, timeout: float = 15) -> pd.DataFrame
             })
         return pd.DataFrame(rows)
     except Exception:
-        logger.debug("Eastmoney insider txns failed for %s", symbol, exc_info=True)
+        logger.debug("Eastmoney insider txns failed for %s", symbol)
         return pd.DataFrame()
 
 

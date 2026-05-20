@@ -93,7 +93,7 @@ def fetch_kline(
             rows = [r for r in rows if pd.Timestamp(r["date"][:10]) <= ed]
         return rows
     except Exception:
-        logger.debug("yfinance kline failed for %s", ysym, exc_info=True)
+        logger.debug("yfinance kline failed for %s", ysym)
         return []
 
 
@@ -126,7 +126,7 @@ def fetch_quote(symbol: str, market: str = "us_stock", timeout: float = 15) -> O
             "timestamp": datetime.now(),
         }
     except Exception:
-        logger.debug("yfinance quote failed for %s", ysym, exc_info=True)
+        logger.debug("yfinance quote failed for %s", ysym)
         return None
 
 

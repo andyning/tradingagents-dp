@@ -182,7 +182,7 @@ def fetch_quote(code: str, timeout: float = 10) -> Optional[dict]:
 
         return result
     except Exception:
-        logger.debug("Tencent quote failed for %s", code, exc_info=True)
+        logger.debug("Tencent quote failed for %s", code)
         return None
 
 
@@ -301,7 +301,7 @@ def fetch_kline(
         return results
 
     except Exception:
-        logger.debug("Tencent kline failed for %s period=%s", code, period, exc_info=True)
+        logger.debug("Tencent kline failed for %s period=%s", code, period)
         return []
 
 

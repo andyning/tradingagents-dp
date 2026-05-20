@@ -28,13 +28,17 @@ def main():
     def _cleanup(signum=None, frame=None):
         """Kill child process and exit cleanly."""
         try:
-            proc.terminate()
+            # On Windows, terminate() sends CTRL_BREAK_EVENT which Streamlit ignores
+            # when background threads (Futu/IB) are still running.  Use kill()
+            # directly for instant shutdown, then clean up after.
+            proc.kill()
             try:
-                proc.wait(timeout=3)
+                proc.wait(timeout=2)
             except subprocess.TimeoutExpired:
-                proc.kill()
+                pass
         except Exception:
             pass
+        # Help the OS clean up orphaned child threads
         print("\nStopped.")
         sys.exit(0)
 

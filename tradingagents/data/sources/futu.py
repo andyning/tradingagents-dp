@@ -9,6 +9,7 @@ Supports A-shares (SH/SZ), HK stocks, and US stocks.
 
 from __future__ import annotations
 
+import atexit
 import threading
 import time
 from datetime import date
@@ -17,6 +18,20 @@ import pandas as pd
 
 from tradingagents.data.sources.base import DataSource
 from tradingagents.logging import get_logger
+
+
+def _close_futu_connection():
+    """Cleanly close the shared Futu connection on process exit."""
+    global _futu_ctx
+    if _futu_ctx is not None:
+        try:
+            _futu_ctx.close()
+        except Exception:
+            pass
+        _futu_ctx = None
+
+
+atexit.register(_close_futu_connection)
 
 logger = get_logger(__name__)
 

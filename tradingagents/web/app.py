@@ -1360,39 +1360,34 @@ def run():
     else:
         info, kline_df = _fetch_stock_data(symbol, market)
 
-    # ═══ TOP BAR (health left, actions right) ═══
-    tcl, tcr = st.columns([3, 1])
-    with tcl:
-        _render_health_bar()
-    with tcr:
-        st.markdown('<div style="display:flex;gap:8px;justify-content:flex-end;padding-top:4px">', unsafe_allow_html=True)
-        b1, b2, b3 = st.columns([1, 1, 1], gap="small")
-        with b1:
-            if st.button("↻ Refresh", key="refresh_data_btn", use_container_width=True,
-                        help="Refresh stock data & K-line chart"):
-                _fetch_stock_data.clear()
-                for k in ("tencent", "eastmoney", "yahoo", "futu", "ib"):
-                    st.session_state.pop(f"_health_{k}", None)
-                import os as _os_env
-                if _os_env.environ.get("TA_FUTU_ENABLED", "0") == "1":
-                    try:
-                        from tradingagents.data.sources.futu import _reset_futu_flag
-                        _reset_futu_flag()
-                    except Exception:
-                        pass
-                _probe_all_now(["llm", "tencent", "eastmoney", "yahoo", "futu", "ib"])
-                st.rerun()
-        with b2:
-            if st.button("⚙ Settings", key="settings_btn", use_container_width=True):
-                st.session_state._page = "settings"
-                st.rerun()
-        with b3:
-            n_hist = len(_load_history())
-            if st.button(f"📋 History", key="history_btn", use_container_width=True,
-                        help=f"{n_hist} analysis records"):
-                st.session_state._page = "history"
-                st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+    # ═══ TOP BAR (actions left, health below) ═══
+    b1, b2, b3, b4 = st.columns([1, 1, 1, 15])
+    with b1:
+        if st.button("↻ Refresh", key="refresh_data_btn", use_container_width=True,
+                    help="Refresh stock data & K-line chart"):
+            _fetch_stock_data.clear()
+            for k in ("tencent", "eastmoney", "yahoo", "futu", "ib"):
+                st.session_state.pop(f"_health_{k}", None)
+            import os as _os_env
+            if _os_env.environ.get("TA_FUTU_ENABLED", "0") == "1":
+                try:
+                    from tradingagents.data.sources.futu import _reset_futu_flag
+                    _reset_futu_flag()
+                except Exception:
+                    pass
+            _probe_all_now(["llm", "tencent", "eastmoney", "yahoo", "futu", "ib"])
+            st.rerun()
+    with b2:
+        if st.button("⚙ Settings", key="settings_btn", use_container_width=True):
+            st.session_state._page = "settings"
+            st.rerun()
+    with b3:
+        n_hist = len(_load_history())
+        if st.button(f"📋 History", key="history_btn", use_container_width=True,
+                    help=f"{n_hist} analysis records"):
+            st.session_state._page = "history"
+            st.rerun()
+    _render_health_bar()
 
     # ═══ PAGE: SETTINGS ═══
     if st.session_state._page == "settings":

@@ -2,10 +2,10 @@
 
 Every data fetch is executed through `with_fallback`, which tries each
 source in order, applying retries per source and Pydantic validation on
-the result.  If all sources fail, `AllSourcesExhausted` is raised.
+the result.  If all sources fail, returns an empty DataFrame.
 
-Each source call is wrapped in a 10-second timeout to prevent any single
-hung source from freezing the UI or pipeline indefinitely.
+Each source call is wrapped in a timeout to prevent any single hung
+source from freezing the UI or pipeline indefinitely.
 """
 
 from __future__ import annotations

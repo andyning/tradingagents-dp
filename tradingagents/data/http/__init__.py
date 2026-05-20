@@ -102,22 +102,46 @@ def _detect_proxy_url() -> str:
     return proxy.strip()
 
 
+def _check_proxy_alive(proxy_url: str) -> bool:
+    """Quick TCP check that the proxy is actually listening."""
+    try:
+        import socket
+        from urllib.parse import urlparse
+        parsed = urlparse(proxy_url)
+        host = parsed.hostname or "127.0.0.1"
+        port = parsed.port or 8080
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(1.0)
+        alive = s.connect_ex((host, port)) == 0
+        s.close()
+        return alive
+    except Exception:
+        return False
+
+
 def refresh_proxy():
     """Re-detect proxy URL. Called on Refresh."""
     global _proxy_url
-    _proxy_url = _detect_proxy_url()
+    proxy = _detect_proxy_url()
+    if proxy and not _check_proxy_alive(proxy):
+        logger.warning("Proxy %s not reachable — falling back to direct", proxy)
+        proxy = ""
+    _proxy_url = proxy
     if _proxy_url:
-        logger.info("Proxy detected: %s", _proxy_url)
+        logger.info("Proxy active: %s", _proxy_url)
     else:
-        logger.debug("No proxy detected")
+        logger.debug("No proxy — direct mode")
 
 
 # Initial detection
 _proxy_url = _detect_proxy_url()
+if _proxy_url and not _check_proxy_alive(_proxy_url):
+    logger.warning("Proxy %s not reachable — falling back to direct", _proxy_url)
+    _proxy_url = ""
 if _proxy_url:
-    logger.info("Proxy detected: %s", _proxy_url)
+    logger.info("Proxy active: %s", _proxy_url)
 else:
-    logger.debug("No proxy detected")
+    logger.debug("No proxy — direct mode")
 
 
 # ── per-domain connectivity profile ────────────────────────────────────

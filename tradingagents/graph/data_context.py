@@ -193,26 +193,28 @@ def for_fundamentals_analyst(state: dict[str, Any]) -> str:
             change_pct = pd.to_numeric(last.get("change_pct", float("nan")), errors="coerce")
             volume = pd.to_numeric(last.get("volume", 0), errors="coerce")
 
-            # If PE/PB missing from K-line (IB, Futu K-line), try Futu snapshot
+            # If PE/PB missing from K-line, try Futu snapshot (only when enabled)
             if (pd.isna(pe) or pd.isna(pb)) and market in ("a_stock", "hk_stock", "us_stock"):
                 try:
-                    from tradingagents.data.sources.futu import _get_shared_futu
-                    futu_sym = symbol.strip().upper()
-                    if market == "a_stock":
-                        futu_sym = f"{'SH' if futu_sym.startswith('6') else 'SZ'}.{futu_sym}"
-                    elif market == "hk_stock":
-                        futu_sym = f"HK.{futu_sym:0>5}"
-                    else:
-                        futu_sym = f"US.{futu_sym}"
-                    ctx = _get_shared_futu()
-                    ret, snap = ctx.get_market_snapshot([futu_sym])
-                    ctx.close()
-                    if ret == 0 and snap is not None and not snap.empty:
-                        row = snap.iloc[0]
-                        if pd.isna(pe):
-                            pe = pd.to_numeric(row.get("pe_ttm_ratio", float("nan")), errors="coerce")
-                        if pd.isna(pb):
-                            pb = pd.to_numeric(row.get("pb_ratio", float("nan")), errors="coerce")
+                    import os as _os_env
+                    if _os_env.environ.get("TA_FUTU_ENABLED", "0") == "1":
+                        from tradingagents.data.sources.futu import _get_shared_futu
+                        futu_sym = symbol.strip().upper()
+                        if market == "a_stock":
+                            futu_sym = f"{'SH' if futu_sym.startswith('6') else 'SZ'}.{futu_sym}"
+                        elif market == "hk_stock":
+                            futu_sym = f"HK.{futu_sym:0>5}"
+                        else:
+                            futu_sym = f"US.{futu_sym}"
+                        ctx = _get_shared_futu()
+                        if ctx is not None:
+                            ret, snap = ctx.get_market_snapshot([futu_sym])
+                            if ret == 0 and snap is not None and not snap.empty:
+                                row = snap.iloc[0]
+                                if pd.isna(pe):
+                                    pe = pd.to_numeric(row.get("pe_ttm_ratio", float("nan")), errors="coerce")
+                                if pd.isna(pb):
+                                    pb = pd.to_numeric(row.get("pb_ratio", float("nan")), errors="coerce")
                 except Exception:
                     pass
 

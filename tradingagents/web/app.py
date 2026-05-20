@@ -411,6 +411,9 @@ def _fetch_stock_data(symbol: str, market: str, days: int = 30):
 
 def _enrich_stock_info(info: dict, symbol: str, market: str) -> dict:
     """Add extra metrics: market cap, float shares, etc. from Futu."""
+    import os as _os_env
+    if _os_env.environ.get("TA_FUTU_ENABLED", "0") != "1":
+        return info
     try:
         from tradingagents.data.sources.futu import _get_shared_futu
         futu_sym = symbol.strip().upper()
@@ -489,16 +492,19 @@ def _lookup_stock_name(symbol: str, market: str) -> str:
                 return str(snap["name"])
         except Exception:
             pass
-        try:
-            from tradingagents.data.sources.futu import _get_shared_futu
-            ctx = _get_shared_futu()
-            ret, df = ctx.get_market_snapshot([f"{'SH' if s.startswith('6') else 'SZ'}.{s}"])
-            if ret == 0 and df is not None and not df.empty:
-                name = df.iloc[0].get("name", "")
-                if name and name != s:
-                    return str(name)
-        except Exception:
-            pass
+        import os as _os_env
+        if _os_env.environ.get("TA_FUTU_ENABLED", "0") == "1":
+            try:
+                from tradingagents.data.sources.futu import _get_shared_futu
+                ctx = _get_shared_futu()
+                if ctx is not None:
+                    ret, df = ctx.get_market_snapshot([f"{'SH' if s.startswith('6') else 'SZ'}.{s}"])
+                    if ret == 0 and df is not None and not df.empty:
+                        name = df.iloc[0].get("name", "")
+                        if name and name != s:
+                            return str(name)
+            except Exception:
+                pass
     # HK stock: Tencent → Eastmoney → Futu
     elif market == "hk_stock":
         try:
@@ -515,16 +521,19 @@ def _lookup_stock_name(symbol: str, market: str) -> str:
                 return str(snap["name"])
         except Exception:
             pass
-        try:
-            from tradingagents.data.sources.futu import _get_shared_futu
-            ctx = _get_shared_futu()
-            ret, df = ctx.get_market_snapshot([f"HK.{s:0>5}"])
-            if ret == 0 and df is not None and not df.empty:
-                name = df.iloc[0].get("name", "")
-                if name and name != s:
-                    return str(name)
-        except Exception:
-            pass
+        import os as _os_env
+        if _os_env.environ.get("TA_FUTU_ENABLED", "0") == "1":
+            try:
+                from tradingagents.data.sources.futu import _get_shared_futu
+                ctx = _get_shared_futu()
+                if ctx is not None:
+                    ret, df = ctx.get_market_snapshot([f"HK.{s:0>5}"])
+                    if ret == 0 and df is not None and not df.empty:
+                        name = df.iloc[0].get("name", "")
+                        if name and name != s:
+                            return str(name)
+            except Exception:
+                pass
     # US stock: Yahoo HTTP → Eastmoney → Futu
     elif market == "us_stock":
         try:
@@ -541,16 +550,19 @@ def _lookup_stock_name(symbol: str, market: str) -> str:
                 return str(snap["name"])
         except Exception:
             pass
-        try:
-            from tradingagents.data.sources.futu import _get_shared_futu
-            ctx = _get_shared_futu()
-            ret, df = ctx.get_market_snapshot([f"US.{s}"])
-            if ret == 0 and df is not None and not df.empty:
-                name = df.iloc[0].get("name", "")
-                if name and name != s:
-                    return str(name)
-        except Exception:
-            pass
+        import os as _os_env
+        if _os_env.environ.get("TA_FUTU_ENABLED", "0") == "1":
+            try:
+                from tradingagents.data.sources.futu import _get_shared_futu
+                ctx = _get_shared_futu()
+                if ctx is not None:
+                    ret, df = ctx.get_market_snapshot([f"US.{s}"])
+                    if ret == 0 and df is not None and not df.empty:
+                        name = df.iloc[0].get("name", "")
+                        if name and name != s:
+                            return str(name)
+            except Exception:
+                pass
     return s
 
 # ── Cache helpers ───────────────────────────────────────────────────────
@@ -1395,11 +1407,13 @@ def run():
             _fetch_stock_data.clear()
             for k in ("tencent", "eastmoney", "yahoo", "futu", "ib"):
                 st.session_state.pop(f"_health_{k}", None)
-            try:
-                from tradingagents.data.sources.futu import _reset_futu_flag
-                _reset_futu_flag()
-            except Exception:
-                pass
+            import os as _os_env
+            if _os_env.environ.get("TA_FUTU_ENABLED", "0") == "1":
+                try:
+                    from tradingagents.data.sources.futu import _reset_futu_flag
+                    _reset_futu_flag()
+                except Exception:
+                    pass
             _probe_all_now(["llm", "tencent", "eastmoney", "yahoo", "futu", "ib"])
             st.rerun()
     with rcol3:

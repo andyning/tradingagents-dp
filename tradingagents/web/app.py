@@ -1317,7 +1317,7 @@ def run():
 
     # ═══ TOP BAR (actions left, health below) ═══
     can_run = not st.session_state._running and market is not None
-    b1, b2, b3, b4, b5, b6 = st.columns([0.6, 0.8, 0.7, 0.7, 0.6, 12.6])
+    b1, b2, b3, b4, b5, b6 = st.columns([2.5, 1.8, 2.5, 2.5, 2.5, 3.2], gap="small")
     with b1:
         if st.button("↻ Refresh", key="refresh_data_btn", help="Refresh stock data & K-line chart"):
             _fetch_stock_data.clear()

@@ -1190,6 +1190,7 @@ def run():
     if "_cached_symbol" not in st.session_state: st.session_state._cached_symbol = ""
     if "_cached_depth" not in st.session_state: st.session_state._cached_depth = ""
     if "_page" not in st.session_state: st.session_state._page = "main"
+    if "_show_export" not in st.session_state: st.session_state._show_export = False
     if "_futu_enabled" not in st.session_state: st.session_state._futu_enabled = False
     if "_ib_enabled" not in st.session_state: st.session_state._ib_enabled = False
 
@@ -1274,52 +1275,6 @@ def run():
             st.caption(f"Queue ({len(st.session_state._batch_queue)}): {', '.join(st.session_state._batch_queue[:8])}" +
                       (f" ..." if len(st.session_state._batch_queue) > 8 else ""))
 
-        # Run Analysis — ALWAYS at the bottom
-        st.divider()
-        can_run = not st.session_state._running and market is not None
-        if st.button("▶  Run Analysis", type="primary", disabled=not can_run, use_container_width=True):
-            # Quick health probe before starting pipeline
-            _probe_all_now(["llm", "tencent", "eastmoney", "yahoo", "futu", "ib"])
-            st.session_state._running = True
-            st.session_state._done = False
-            st.session_state._from_cache = False
-            st.session_state._notified = False
-            st.session_state._cached_result = None
-            t = threading.Thread(target=_run_pipeline, args=(symbol, trade_date, market, depth, data_window), daemon=True)
-            t.start()
-            st.session_state._thread = t
-            st.rerun()
-
-        # Clear Report — remove cached analysis for current symbol+depth
-        if st.button("Clear Report", type="secondary", use_container_width=True):
-            cache_path = _cache_path(symbol, depth)
-            if cache_path.exists():
-                cache_path.unlink()
-            st.session_state._done = False
-            st.session_state._cached_result = None
-            st.session_state._running = False
-            st.rerun()
-
-        # Report export — PDF + Markdown
-        export_data = _load_cached_result(symbol, depth) or {}
-        ec1, ec2 = st.columns(2)
-        with ec1:
-            st.download_button(
-                label="Export Report (PDF)",
-                data=_build_pdf_report(export_data, symbol, trade_date, market, depth),
-                file_name=f"{symbol}_{trade_date}_{depth}.pdf",
-                mime="application/pdf",
-                use_container_width=True,
-            )
-        with ec2:
-            st.download_button(
-                label="Export Report (Markdown)",
-                data=_build_export_report(export_data, symbol, trade_date, market, depth),
-                file_name=f"{symbol}_{trade_date}_{depth}.md",
-                mime="text/markdown",
-                use_container_width=True,
-            )
-
         # Token display (always visible)
         st.divider()
         p_now = get_progress()
@@ -1361,7 +1316,8 @@ def run():
         info, kline_df = _fetch_stock_data(symbol, market)
 
     # ═══ TOP BAR (actions left, health below) ═══
-    b1, b2, b3, b4 = st.columns([0.7, 0.7, 0.7, 14])
+    can_run = not st.session_state._running and market is not None
+    b1, b2, b3, b4, b5, b6 = st.columns([0.6, 0.8, 0.7, 0.7, 0.6, 12.6])
     with b1:
         if st.button("↻ Refresh", key="refresh_data_btn", help="Refresh stock data & K-line chart"):
             _fetch_stock_data.clear()
@@ -1377,15 +1333,52 @@ def run():
             _probe_all_now(["llm", "tencent", "eastmoney", "yahoo", "futu", "ib"])
             st.rerun()
     with b2:
+        if st.button("▶ Run", key="top_run_btn", help="Start analysis", disabled=not can_run):
+            _probe_all_now(["llm", "tencent", "eastmoney", "yahoo", "futu", "ib"])
+            st.session_state._running = True
+            st.session_state._done = False
+            st.session_state._from_cache = False
+            st.session_state._notified = False
+            st.session_state._cached_result = None
+            t = threading.Thread(target=_run_pipeline, args=(symbol, trade_date, market, depth, data_window), daemon=True)
+            t.start()
+            st.session_state._thread = t
+            st.rerun()
+    with b3:
         if st.button("⚙ Settings", key="settings_btn", help="Configure Futu/IB integrations"):
             st.session_state._page = "settings"
             st.rerun()
-    with b3:
+    with b4:
         n_hist = len(_load_history())
         if st.button("📋 History", key="history_btn", help=f"{n_hist} analysis records"):
             st.session_state._page = "history"
             st.rerun()
+    with b5:
+        if st.button("📥 Export", key="export_btn", help="Export report as PDF or Markdown"):
+            st.session_state._show_export = not st.session_state.get("_show_export", False)
+            st.rerun()
     _render_health_bar()
+
+    # ── Export panel ──
+    if st.session_state.get("_show_export", False):
+        export_data = _load_cached_result(symbol, depth) or {}
+        ec1, ec2 = st.columns(2)
+        with ec1:
+            st.download_button(
+                label="Download PDF",
+                data=_build_pdf_report(export_data, symbol, trade_date, market, depth),
+                file_name=f"{symbol}_{trade_date}_{depth}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
+        with ec2:
+            st.download_button(
+                label="Download Markdown",
+                data=_build_export_report(export_data, symbol, trade_date, market, depth),
+                file_name=f"{symbol}_{trade_date}_{depth}.md",
+                mime="text/markdown",
+                use_container_width=True,
+            )
 
     # ═══ PAGE: SETTINGS ═══
     if st.session_state._page == "settings":

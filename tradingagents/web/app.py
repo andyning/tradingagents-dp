@@ -141,6 +141,9 @@ st.markdown("""<style>
 	    header, footer, #MainMenu,
 	    [data-testid="stHeader"], [data-testid="stToolbar"],
 	    [data-testid="stDecoration"], [data-testid="stStatusWidget"] { display: none !important; }
+	    /* Hide sidebar collapse arrow — prevents accidental sidebar loss */
+	    [data-testid="collapsedControl"] { display: none !important; }
+	    button[kind="header"] { display: none !important; }
 	    .health-dot-ok  { color: #00E676; }
 	    .health-dot-down { color: #FF5252; }
 	    .health-dot-unknown { color: #d9d9d9; }

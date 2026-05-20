@@ -67,15 +67,15 @@ st.markdown("""<style>
 	        margin: 10px 0 4px 0; }
 	    h2, h3 { color: #1f1f1f; font-weight: 600; }
 	    .mc {
-	        background: #fff; border: 1px solid #f0f0f0; border-radius: 8px;
-	        padding: 16px 20px; box-shadow: 0 1px 2px rgba(0,0,0,.06);
-	        transition: box-shadow .2s;
+	        background: #fff; border: 1px solid #f0f0f0; border-radius: 6px;
+	        padding: 10px 14px; box-shadow: 0 1px 2px rgba(0,0,0,.04);
+	        transition: box-shadow .15s;
 	    }
-	    .mc:hover { box-shadow: 0 2px 8px rgba(0,0,0,.08); }
-	    .mc .mcl { font-size: 0.75rem; color: #8c8c8c; text-transform: uppercase;
-	        letter-spacing: .06em; font-weight: 500; margin-bottom: 4px; }
-	    .mc .mcv { font-size: 1.75rem; font-weight: 700; color: #1f1f1f; }
-	    .mc .mcs { font-size: 0.82rem; margin-top: 2px; color: #8c8c8c; }
+	    .mc:hover { box-shadow: 0 1px 6px rgba(0,0,0,.06); }
+	    .mc .mcl { font-size: 0.68rem; color: #8c8c8c; text-transform: uppercase;
+	        letter-spacing: .06em; font-weight: 500; margin-bottom: 2px; }
+	    .mc .mcv { font-size: 1.15rem; font-weight: 700; color: #1f1f1f; }
+	    .mc .mcs { font-size: 0.72rem; margin-top: 1px; color: #8c8c8c; }
 	    .up { color: #FF5252 !important; } .down { color: #00E676 !important; }
 	    .badge { display: inline-block; padding: 6px 24px; border-radius: 4px;
 	        font-weight: 600; font-size: 1.1rem; letter-spacing: .02em; }
@@ -1414,32 +1414,34 @@ def run():
             display = str(value)[:16]
         st.markdown(f'<div class="mc"><div class="mcl">{label}</div><div class="mcv {color_class}">{display}</div></div>', unsafe_allow_html=True)
 
-    # Row 1
-    r1 = st.columns(7)
-    with r1[0]: _mc("Symbol", symbol)
-    with r1[1]: _mc("Name", str(info.get("name", "—")))
-    with r1[2]:
+    # ── Stock Info Cards (single compact row) ──
+    # Row 1: 6 key metrics
+    r1 = st.columns(6)
+    with r1[0]:
         close = info.get("close")
-        _mc("Price", f"¥{close:.2f}" if close and close == close else None)
-    with r1[3]:
+        currency = "¥" if market == "a_stock" else "HK$" if market == "hk_stock" else "$"
+        _mc("Price", f"{currency}{close:.2f}" if close and close == close else None)
+    with r1[1]:
         chg = info.get("change_pct")
         cls = "up" if (chg or 0) >= 0 else "down"
-        _mc("Change", chg, fmt="pct", color_class=cls)
-    with r1[4]: _mc("PE-TTM", info.get("pe"), fmt="pe")
-    with r1[5]: _mc("PE-动", info.get("pe_forward"), fmt="pe")
-    with r1[6]: _mc("Turnover%", info.get("turn"), fmt="f2")
+        _mc("Change %", chg, fmt="pct", color_class=cls)
+    with r1[2]: _mc("PE-TTM", info.get("pe"), fmt="pe")
+    with r1[3]: _mc("PB", info.get("pb"), fmt="f2")
+    with r1[4]: _mc("Market Cap", info.get("market_cap"), fmt="big")
+    with r1[5]: _mc("Turnover %", info.get("turn"), fmt="f2")
 
-    # Row 2
-    r2 = st.columns(7)
-    with r2[0]: _mc("Market Cap", info.get("market_cap"), fmt="big")
+    # Row 2: 6 supplementary metrics
+    r2 = st.columns(6)
+    with r2[0]:
+        pe_fwd = info.get("pe_forward")
+        _mc("PE-动", pe_fwd, fmt="pe")
     with r2[1]: _mc("成交额", info.get("amount"), fmt="big")
     with r2[2]: _mc("量比", info.get("vol_ratio"), fmt="f2")
     with r2[3]: _mc("流通股", info.get("float_shares"), fmt="shares")
     with r2[4]: _mc("总股本", info.get("total_shares"), fmt="shares")
     with r2[5]: _mc("盈利?", info.get("is_profitable", "—"))
-    with r2[6]: _mc("PB", info.get("pb"), fmt="f2")
 
-    st.markdown('<div style="margin-top:16px"></div>', unsafe_allow_html=True)
+    st.markdown('<div style="margin-top:8px"></div>', unsafe_allow_html=True)
 
     # ═══ K-line chart ═══
     if not kline_df.empty:
@@ -1452,27 +1454,31 @@ def run():
                     kdf[c] = pd.to_numeric(kdf[c], errors="coerce")
             kdf = kdf.dropna(subset=["open","high","low","close"])
 
+            stock_name = info.get("name", symbol)
             fig = go.Figure()
             fig.add_trace(go.Candlestick(
                 x=kdf["date"], open=kdf["open"], high=kdf["high"],
                 low=kdf["low"], close=kdf["close"],
-                name="Price", increasing_line_color="#FF5252", decreasing_line_color="#00E676",
+                name="", increasing_line_color="#FF5252", decreasing_line_color="#00E676",
+                increasing_fillcolor="rgba(255,82,82,0.06)", decreasing_fillcolor="rgba(0,230,118,0.04)",
             ))
             fig.add_trace(go.Bar(
-                x=kdf["date"], y=kdf["volume"], name="Volume",
-                marker_color="rgba(37,99,235,0.3)", yaxis="y2",
+                x=kdf["date"], y=kdf["volume"], name="",
+                marker_color="rgba(24,144,255,0.15)", yaxis="y2",
             ))
             fig.update_layout(
-                title=dict(text=f"{symbol}  {info.get('name', '')}", font=dict(color="#1f1f1f")),
-                xaxis_title="", yaxis_title="Price",
+                title=dict(text=f"{symbol}  {stock_name}", font=dict(color="#1f1f1f", size=13)),
+                xaxis=dict(title="", showgrid=False, zeroline=False),
+                yaxis=dict(title="", gridcolor="#f5f5f5", zeroline=False,
+                          tickformat=".2f", tickfont=dict(color="#595959", size=10)),
                 template="plotly_white",
-                height=400,
-                margin=dict(l=0, r=0, t=50, b=0),
+                height=320,
+                margin=dict(l=0, r=0, t=36, b=0),
                 showlegend=False,
                 xaxis_rangeslider_visible=False,
-                yaxis=dict(gridcolor="#f0f0f0", zerolinecolor="#f0f0f0"),
                 yaxis2=dict(title="", overlaying="y", side="right", showgrid=False, visible=False),
                 hovermode="x unified",
+                paper_bgcolor="#fff", plot_bgcolor="#fafafa",
             )
             st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
         except Exception:

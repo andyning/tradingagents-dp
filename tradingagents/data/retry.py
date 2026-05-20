@@ -18,7 +18,7 @@ import pandas as pd
 from pydantic import BaseModel, ValidationError
 
 from tradingagents.data.cache import get_cached, set_cache_miss, set_cached
-from tradingagents.exceptions import AllSourcesExhausted, DataSourceError, SchemaValidationError
+from tradingagents.exceptions import DataSourceError, SchemaValidationError
 from tradingagents.logging import get_logger
 
 logger = get_logger(__name__)
@@ -127,9 +127,8 @@ def with_fallback(
     # Cache the miss so we don't retry every analyst
     if cache:
         set_cache_miss(symbol, endpoint, params)
-    raise AllSourcesExhausted(
-        f"{endpoint} for {symbol}"
-    ) from last_error
+    logger.warning("[%s] all sources exhausted for %s — returning empty DataFrame", endpoint, symbol)
+    return pd.DataFrame()
 
 
 def _validate_df(

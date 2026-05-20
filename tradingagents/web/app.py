@@ -945,6 +945,30 @@ def _build_pdf_report(state: dict, symbol: str, trade_date: str, market: str, de
             """Strip emoji and non-renderable characters that CJK fonts lack."""
             return s.replace("⚠", "[!]").replace("️", "").replace("✔", "[v]").replace("❌", "[x]").replace("✓", "[v]")
 
+        def _safe_text(self, w, h, txt):
+            """multi_cell that won't crash on unbreakable long strings."""
+            max_w = self.w - self.l_margin - self.r_margin
+            if w is None or w <= 0:
+                w = max_w
+            w = min(w, max_w)
+            # Force-break any segment longer than the available width
+            safe = ""
+            for segment in txt.split(" "):
+                if self.get_string_width(segment) > w:
+                    # Break long segment into chunks
+                    chunk = ""
+                    for ch in segment:
+                        if self.get_string_width(chunk + ch) > w - 3:
+                            safe += chunk + " "
+                            chunk = ch
+                        else:
+                            chunk += ch
+                    safe += chunk
+                else:
+                    safe += segment
+                safe += " "
+            self.multi_cell(w, h, safe.strip())
+
         def body_text(self, text: str):
             if not text or not text.strip():
                 return
@@ -960,26 +984,26 @@ def _build_pdf_report(state: dict, symbol: str, trade_date: str, market: str, de
                 if line.startswith("### "):
                     self.set_font(FONT_NAME, size=10)
                     self.set_text_color(0, 0, 0)
-                    self.multi_cell(0, 6, line[4:])
+                    self._safe_text(0, 6, line[4:])
                     self.ln(1)
                     self.set_font(FONT_NAME, size=8.5)
                     self.set_text_color(30, 30, 30)
                 elif line.startswith("## "):
                     self.set_font(FONT_NAME, size=11)
                     self.set_text_color(0, 47, 167)
-                    self.multi_cell(0, 7, line[3:])
+                    self._safe_text(0, 7, line[3:])
                     self.ln(1)
                     self.set_font(FONT_NAME, size=8.5)
                     self.set_text_color(30, 30, 30)
                 elif line.startswith("# "):
                     self.set_font(FONT_NAME, size=13)
                     self.set_text_color(0, 47, 167)
-                    self.multi_cell(0, 8, line[2:])
+                    self._safe_text(0, 8, line[2:])
                     self.ln(1)
                     self.set_font(FONT_NAME, size=8.5)
                     self.set_text_color(30, 30, 30)
                 elif line.startswith(("- ", "* ")):
-                    self.multi_cell(0, 5, "· " + line[2:])
+                    self._safe_text(0, 5, "· " + line[2:])
                 elif line.startswith("**") and "**:" in line:
                     parts = line.split("**:", 1)
                     label = parts[0].replace("**", "").strip()
@@ -988,10 +1012,10 @@ def _build_pdf_report(state: dict, symbol: str, trade_date: str, market: str, de
                     label_w = self.get_string_width(label + ":  ")
                     self.cell(label_w, 5, label + ":  ")
                     self.set_text_color(30, 30, 30)
-                    self.multi_cell(self.w - self.get_x() - self.r_margin, 5, val)
+                    self._safe_text(self.w - self.get_x() - self.r_margin, 5, val)
                     self.set_text_color(30, 30, 30)
                 else:
-                    self.multi_cell(0, 5, line)
+                    self._safe_text(0, 5, line)
 
         def kv_table(self, rows: list[tuple[str, str]]):
             """Simple key-value table with colored labels."""
@@ -1004,7 +1028,7 @@ def _build_pdf_report(state: dict, symbol: str, trade_date: str, market: str, de
                 self.set_text_color(180, 60, 20)
                 self.cell(38, 6, f" {label}", fill=True)
                 self.set_text_color(30, 30, 30)
-                self.multi_cell(self.w - self.get_x() - self.r_margin, 6, str(value)[:300])
+                self._safe_text(self.w - self.get_x() - self.r_margin, 6, str(value)[:300])
                 self.ln(0.5)
 
     pdf = PDF()

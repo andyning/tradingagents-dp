@@ -1528,14 +1528,25 @@ def run():
                             st.session_state._cached_result = full
                             st.session_state._page = "main"
                             st.rerun()
+                pdf_key = f"hist_pdf_req_{i}"
                 full = _load_from_history(entry)
                 with cols[5]:
-                    if full:
-                        st.download_button(
-                            label="PDF", key=f"hist_pdf_{i}",
-                            data=_build_pdf_report(full.get("state", {}), sym, dt, market, depth),
-                            file_name=f"{sym}_{dt}_{depth}.pdf", mime="application/pdf",
-                        )
+                    if st.session_state.get(pdf_key):
+                        # Generate PDF only when explicitly requested
+                        try:
+                            pdf_data = _build_pdf_report(full.get("state", {}), sym, dt, market, depth)
+                            st.download_button(
+                                label="PDF", key=f"hist_pdf_{i}",
+                                data=pdf_data,
+                                file_name=f"{sym}_{dt}_{depth}.pdf", mime="application/pdf",
+                            )
+                        except Exception as e:
+                            st.error(f"PDF generation failed: {e}")
+                            st.session_state[pdf_key] = False
+                    else:
+                        if st.button("PDF", key=f"hist_pdfbtn_{i}"):
+                            st.session_state[pdf_key] = True
+                            st.rerun()
             st.divider()
         c1, c2 = st.columns(2)
         with c1:

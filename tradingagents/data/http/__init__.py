@@ -21,12 +21,20 @@ from tradingagents.logging import get_logger
 
 logger = get_logger(__name__)
 
-# ── proxy URL (auto-detected from Windows registry on first import) ────
+# ── proxy URL (auto-detected from OS environment on every Refresh) ────
 _proxy_url: str = ""
 
 
 def _detect_proxy_url() -> str:
-    """Detect proxy URL from .env, env vars, or Windows registry."""
+    """Detect proxy URL from OS environment. Called on import and every Refresh.
+
+    Priority:
+      1. PROXY_URL from .env / Settings
+      2. HTTPS_PROXY / HTTP_PROXY / https_proxy / http_proxy env vars
+      3. Windows registry (HKCU Internet Settings ProxyServer)
+      4. macOS System Configuration (networksetup)
+      5. Linux environment variables
+    """
     proxy = ""
     try:
         from tradingagents.config import get_settings
@@ -38,22 +46,73 @@ def _detect_proxy_url() -> str:
         proxy = (os.environ.get("HTTPS_PROXY") or os.environ.get("HTTP_PROXY")
                  or os.environ.get("https_proxy") or os.environ.get("http_proxy") or "")
     if not proxy:
-        try:
-            import winreg
-            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER,
-                r"Software\Microsoft\Windows\CurrentVersion\Internet Settings")
+        import platform
+        system = platform.system()
+        if system == "Windows":
             try:
-                server = winreg.QueryValueEx(key, "ProxyServer")[0] or ""
+                import winreg
+                key = winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                    r"Software\Microsoft\Windows\CurrentVersion\Internet Settings")
+                try:
+                    enabled = int(winreg.QueryValueEx(key, "ProxyEnable")[0])
+                    server = winreg.QueryValueEx(key, "ProxyServer")[0] or ""
+                except Exception:
+                    enabled, server = 0, ""
+                winreg.CloseKey(key)
+                if server:
+                    proxy = f"http://{server}" if "://" not in server else server
             except Exception:
-                server = ""
-            winreg.CloseKey(key)
-            if server:
-                proxy = f"http://{server}" if "://" not in server else server
-        except Exception:
+                pass
+        elif system == "Darwin":  # macOS
+            try:
+                import subprocess
+                for proto in ("https", "http"):
+                    result = subprocess.run(
+                        ["networksetup", "-getwebproxy", "Wi-Fi"],
+                        capture_output=True, text=True, timeout=3,
+                    )
+                    if result.returncode == 0 and "Enabled: Yes" in result.stdout:
+                        for line in result.stdout.split("\n"):
+                            if "Server:" in line:
+                                host = line.split(":", 1)[1].strip()
+                            if "Port:" in line:
+                                port = line.split(":", 1)[1].strip()
+                        if host and port:
+                            proxy = f"http://{host}:{port}"
+                            break
+                if not proxy:
+                    # Try SOCKS proxy
+                    result = subprocess.run(
+                        ["networksetup", "-getsocksfirewallproxy", "Wi-Fi"],
+                        capture_output=True, text=True, timeout=3,
+                    )
+                    if result.returncode == 0 and "Enabled: Yes" in result.stdout:
+                        for line in result.stdout.split("\n"):
+                            if "Server:" in line:
+                                host = line.split(":", 1)[1].strip()
+                            if "Port:" in line:
+                                port = line.split(":", 1)[1].strip()
+                        if host and port:
+                            proxy = f"socks5h://{host}:{port}"
+            except Exception:
+                pass
+        else:  # Linux
+            # Already handled by HTTP_PROXY/HTTPS_PROXY env vars above
             pass
     return proxy.strip()
 
 
+def refresh_proxy():
+    """Re-detect proxy URL. Called on Refresh."""
+    global _proxy_url
+    _proxy_url = _detect_proxy_url()
+    if _proxy_url:
+        logger.info("Proxy detected: %s", _proxy_url)
+    else:
+        logger.debug("No proxy detected")
+
+
+# Initial detection
 _proxy_url = _detect_proxy_url()
 if _proxy_url:
     logger.info("Proxy detected: %s", _proxy_url)
@@ -159,6 +218,7 @@ def clear_http_session(host: str = ""):
                     _sessions.pop(k, None)
         else:
             _sessions.clear()
+        refresh_proxy()
         reset_connectivity_profile()
 
 

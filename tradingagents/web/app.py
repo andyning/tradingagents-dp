@@ -393,12 +393,14 @@ def _fetch_stock_data(symbol: str, market: str, days: int = 30):
         # Enrich PE/PB/change_pct from quote if missing from K-line (Tencent K-line is OHLCV-only)
         if info.get("pe") is None or (isinstance(info["pe"], float) and info["pe"] != info["pe"]) or \
            info.get("pb") is None or (isinstance(info["pb"], float) and info["pb"] != info["pb"]) or \
-           info.get("change_pct") is None or info.get("turn") is None:
+           info.get("change_pct") is None or info.get("turn") is None or \
+           info.get("pe_forward") is None or info.get("total_shares") is None:
             try:
                 qdf = mod.get_quote(symbol)
                 if not qdf.empty:
                     qr = qdf.iloc[0]
-                    for k in ("pe", "pb", "change_pct", "turnover", "market_cap"):
+                    for k in ("pe", "pb", "change_pct", "turnover", "market_cap",
+                              "pe_forward", "total_shares", "float_shares"):
                         qv = qr.get(k)
                         if qv is not None and (not isinstance(qv, float) or qv == qv):
                             if k == "turnover":

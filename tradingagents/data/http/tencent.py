@@ -132,8 +132,12 @@ def fetch_quote(code: str, timeout: float = 10) -> Optional[dict]:
             "amount": _float(37) * 10000 if _float(37) else 0.0,  # 万->元
             "turnover": _float(38),
             "pe": _float(39) if _float(39) else None,
+            "pe_forward": _float(53) if _float(53) else None,     # PE-动
             "pb": _float(46) if _float(46) else None,
-            "market_cap": _float(45) if _float(45) else None,  # 亿
+            "market_cap": _float(44) if _float(44) else None,     # 总市值(亿)
+            "float_market_cap": _float(45) if _float(45) else None, # 流通市值(亿)
+            "total_shares": int(_float(72)) if _float(72) else None,   # 总股本(股)
+            "float_shares": int(_float(73)) if _float(73) else None,   # 流通股本(股)
             "timestamp": datetime.now(),
         }
     except Exception:
@@ -158,8 +162,12 @@ def quote_to_dataframe(raw: Optional[dict]) -> pd.DataFrame:
         "pre_close": raw.get("pre_close", 0.0),
         "turnover": raw.get("turnover", 0.0),
         "pe": raw.get("pe"),
+        "pe_forward": raw.get("pe_forward"),
         "pb": raw.get("pb"),
         "market_cap": raw.get("market_cap"),
+        "float_market_cap": raw.get("float_market_cap"),
+        "total_shares": raw.get("total_shares"),
+        "float_shares": raw.get("float_shares"),
         "timestamp": raw.get("timestamp", datetime.now()),
     }])
 

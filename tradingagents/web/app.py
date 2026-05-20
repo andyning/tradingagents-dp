@@ -1213,6 +1213,25 @@ def run():
         st.markdown('<div class="ig-label" style="margin-top:0">Stock Symbol</div>', unsafe_allow_html=True)
         symbol = st.text_input("symbol_input", last.get("symbol", "688775"), placeholder="输入股票代码", label_visibility="collapsed")
 
+        # ── Batch Analysis ──
+        with st.expander("Batch Analysis", expanded=False):
+            batch_symbols = st.text_area("batch_input", placeholder="600519, 000001, 688775", label_visibility="collapsed", height=60)
+            batch_list = [s.strip() for s in batch_symbols.replace("\n", ",").split(",") if s.strip()] if batch_symbols else []
+            bcol1, bcol2 = st.columns([3, 1])
+            with bcol1:
+                if batch_list and st.button("Add to Queue", use_container_width=True):
+                    for s in batch_list:
+                        if s not in st.session_state._batch_queue:
+                            st.session_state._batch_queue.append(s)
+                    st.rerun()
+            with bcol2:
+                if st.session_state._batch_queue and st.button("Clear Queue", use_container_width=True):
+                    st.session_state._batch_queue = []
+                    st.rerun()
+            if st.session_state._batch_queue:
+                st.caption(f"Queue ({len(st.session_state._batch_queue)}): {', '.join(st.session_state._batch_queue[:8])}" +
+                          (f" ..." if len(st.session_state._batch_queue) > 8 else ""))
+
         st.markdown('<div class="ig-label">Analysis Date</div>', unsafe_allow_html=True)
         trade_date = st.date_input("date_input", pd.Timestamp.now(), label_visibility="collapsed").strftime("%Y-%m-%d")
 
@@ -1255,27 +1274,6 @@ def run():
 
         # Persist current selection
         _save_session(symbol, depth, data_window)
-        st.divider()
-
-        # Batch analysis
-        st.divider()
-        st.markdown("**Batch Analysis**")
-        batch_symbols = st.text_area("batch_input", placeholder="600519, 000001, 688775", label_visibility="collapsed", height=60)
-        batch_list = [s.strip() for s in batch_symbols.replace("\n", ",").split(",") if s.strip()] if batch_symbols else []
-        bcol1, bcol2 = st.columns([3, 1])
-        with bcol1:
-            if batch_list and st.button("Add to Queue", use_container_width=True):
-                for s in batch_list:
-                    if s not in st.session_state._batch_queue:
-                        st.session_state._batch_queue.append(s)
-                st.rerun()
-        with bcol2:
-            if st.session_state._batch_queue and st.button("Clear", use_container_width=True):
-                st.session_state._batch_queue = []
-                st.rerun()
-        if st.session_state._batch_queue:
-            st.caption(f"Queue ({len(st.session_state._batch_queue)}): {', '.join(st.session_state._batch_queue[:8])}" +
-                      (f" ..." if len(st.session_state._batch_queue) > 8 else ""))
 
         # Token display (always visible)
         st.divider()

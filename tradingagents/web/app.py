@@ -201,7 +201,7 @@ def _probe_llm():
     try:
         from tradingagents.config import get_settings
         settings = get_settings()
-        key = settings.deepseek_api_key
+        key = settings.deepseek_api_key or st.session_state.get("_deepseek_api_key_ui", "")
         if not key:
             return False
         import openai
@@ -1206,11 +1206,15 @@ def run():
     if "_show_export" not in st.session_state: st.session_state._show_export = False
     if "_futu_enabled" not in st.session_state: st.session_state._futu_enabled = False
     if "_ib_enabled" not in st.session_state: st.session_state._ib_enabled = False
+    if "_deepseek_api_key_ui" not in st.session_state: st.session_state._deepseek_api_key_ui = ""
 
     # Sync session state to env for data layer access
     import os as _os_env
     _os_env.environ["TA_FUTU_ENABLED"] = "1" if st.session_state._futu_enabled else "0"
     _os_env.environ["TA_IB_ENABLED"] = "1" if st.session_state._ib_enabled else "0"
+    # UI-set API key overrides when .env key is empty
+    if st.session_state._deepseek_api_key_ui and not _os_env.environ.get("DEEPSEEK_API_KEY"):
+        _os_env.environ["DEEPSEEK_API_KEY"] = st.session_state._deepseek_api_key_ui
 
     # ═══ SIDEBAR ═══
     with st.sidebar:
@@ -1371,31 +1375,56 @@ def run():
     # ═══ PAGE: SETTINGS ═══
     if st.session_state._page == "settings":
         st.markdown("## ⚙ Settings")
-        st.caption("Configure data source integrations. Changes take effect immediately.")
+
+        # ── LLM ──
+        st.markdown("### DeepSeek API Key")
+        from tradingagents.config import get_settings
+        env_key = get_settings().deepseek_api_key or ""
+        current_key = env_key or st.session_state._deepseek_api_key_ui
+        if env_key:
+            st.caption("Using API key from .env file.")
+        elif current_key:
+            st.caption("Using API key set via UI. Key is masked for security.")
+        else:
+            st.caption("No API key configured. Set one below or in .env as DEEPSEEK_API_KEY.")
+
+        new_key = st.text_input(
+            "API Key",
+            value=current_key,
+            type="password",
+            placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxx",
+            help="Your DeepSeek API key. Stored in browser session (not saved to disk).",
+        )
+        if new_key != current_key:
+            st.session_state._deepseek_api_key_ui = new_key.strip()
+            from tradingagents.llm.client import clear_client_cache
+            clear_client_cache()
+            st.rerun()
+        if not env_key and st.button("Clear API Key"):
+            st.session_state._deepseek_api_key_ui = ""
+            st.rerun()
+
         st.divider()
 
+        # ── Brokers ──
+        st.markdown("### Broker Integrations")
+        st.caption("Optional — HTTP data sources work without these.")
         sc1, sc2 = st.columns(2)
         with sc1:
-            st.markdown("### Futu OpenD")
-            st.caption("Free local market data service. Download from futunn.com. Runs on port 11111.")
-            new_futu = st.toggle("Enable Futu OpenD", value=st.session_state._futu_enabled,
-                                 help="Requires Futu OpenD running on localhost:11111")
+            new_futu = st.checkbox("Futu OpenD", value=st.session_state._futu_enabled,
+                                   help="Requires Futu OpenD on localhost:11111")
             if new_futu != st.session_state._futu_enabled:
                 st.session_state._futu_enabled = new_futu
                 st.session_state.pop("_health_futu", None)
                 st.rerun()
         with sc2:
-            st.markdown("### IB Gateway")
-            st.caption("Professional broker data via Interactive Brokers. Runs on port 4002.")
-            new_ib = st.toggle("Enable IB Gateway", value=st.session_state._ib_enabled,
-                               help="Requires IB Gateway/TWS running on localhost:4002")
+            new_ib = st.checkbox("IB Gateway", value=st.session_state._ib_enabled,
+                                 help="Requires IB Gateway/TWS on localhost:4002")
             if new_ib != st.session_state._ib_enabled:
                 st.session_state._ib_enabled = new_ib
                 st.session_state.pop("_health_ib", None)
                 st.rerun()
 
-        st.divider()
-        st.caption("Futu and IB are optional — HTTP data sources (Tencent, Eastmoney, Yahoo) work without them.")
         if st.button("← Back to Dashboard", type="primary"):
             st.session_state._page = "main"
             st.rerun()

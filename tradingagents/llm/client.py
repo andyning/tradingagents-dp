@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import time
+import os
 from typing import Any, Callable
 
 from openai import OpenAI
@@ -55,7 +56,7 @@ class DeepSeekClient:
         mode: str = "quick",
     ):
         settings = get_settings()
-        self._api_key = settings.deepseek_api_key
+        self._api_key = settings.deepseek_api_key or os.environ.get("DEEPSEEK_API_KEY", "")
         self._base_url = settings.llm_base_url
         self.model = model or (
             settings.quick_think_model if mode == "quick" else settings.deep_think_model

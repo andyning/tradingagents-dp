@@ -1361,10 +1361,9 @@ def run():
         info, kline_df = _fetch_stock_data(symbol, market)
 
     # ═══ TOP BAR (actions left, health below) ═══
-    b1, b2, b3, b4 = st.columns([1, 1, 1, 15])
+    b1, b2, b3, b4 = st.columns([0.7, 0.7, 0.7, 14])
     with b1:
-        if st.button("↻ Refresh", key="refresh_data_btn", use_container_width=True,
-                    help="Refresh stock data & K-line chart"):
+        if st.button("↻ Refresh", key="refresh_data_btn", help="Refresh stock data & K-line chart"):
             _fetch_stock_data.clear()
             for k in ("tencent", "eastmoney", "yahoo", "futu", "ib"):
                 st.session_state.pop(f"_health_{k}", None)
@@ -1378,13 +1377,12 @@ def run():
             _probe_all_now(["llm", "tencent", "eastmoney", "yahoo", "futu", "ib"])
             st.rerun()
     with b2:
-        if st.button("⚙ Settings", key="settings_btn", use_container_width=True):
+        if st.button("⚙ Settings", key="settings_btn", help="Configure Futu/IB integrations"):
             st.session_state._page = "settings"
             st.rerun()
     with b3:
         n_hist = len(_load_history())
-        if st.button(f"📋 History", key="history_btn", use_container_width=True,
-                    help=f"{n_hist} analysis records"):
+        if st.button("📋 History", key="history_btn", help=f"{n_hist} analysis records"):
             st.session_state._page = "history"
             st.rerun()
     _render_health_bar()

@@ -411,6 +411,14 @@ def _fetch_stock_data(symbol: str, market: str, days: int = 30):
                         info["name"] = str(qname)
             except Exception:
                 pass
+        # Infer profitability from PE (works without Futu)
+        pe_val = info.get("pe")
+        if pe_val is not None and pe_val == pe_val:
+            if pe_val < 0:
+                info["is_profitable"] = "亏损"
+            elif pe_val > 0:
+                info["is_profitable"] = "盈利"
+        # Float shares / total shares still need Futu — leave as None
         # Enrich with extra metrics from Futu if available
         info = _enrich_stock_info(info, symbol, market)
         return info, df

@@ -1317,7 +1317,7 @@ def run():
 
     # ═══ TOP BAR (actions left, health below) ═══
     can_run = not st.session_state._running and market is not None
-    b1, b2, b3, b4, b5, b6 = st.columns([1.3, 0.9, 1.3, 1.2, 1.3, 10], gap="small")
+    b1, b2, b3, b4, b5 = st.columns([1.3, 0.9, 1.3, 1.2, 11], gap="small")
     with b1:
         if st.button("↻ Refresh", key="refresh_data_btn", help="Refresh stock data & K-line chart"):
             _fetch_stock_data.clear()
@@ -1353,32 +1353,7 @@ def run():
         if st.button("📋 History", key="history_btn", help=f"{n_hist} analysis records"):
             st.session_state._page = "history"
             st.rerun()
-    with b5:
-        if st.button("📥 Export", key="export_btn", help="Export report as PDF or Markdown"):
-            st.session_state._show_export = not st.session_state.get("_show_export", False)
-            st.rerun()
     _render_health_bar()
-
-    # ── Export panel ──
-    if st.session_state.get("_show_export", False):
-        export_data = _load_cached_result(symbol, depth) or {}
-        ec1, ec2 = st.columns(2)
-        with ec1:
-            st.download_button(
-                label="Download PDF",
-                data=_build_pdf_report(export_data, symbol, trade_date, market, depth),
-                file_name=f"{symbol}_{trade_date}_{depth}.pdf",
-                mime="application/pdf",
-                use_container_width=True,
-            )
-        with ec2:
-            st.download_button(
-                label="Download Markdown",
-                data=_build_export_report(export_data, symbol, trade_date, market, depth),
-                file_name=f"{symbol}_{trade_date}_{depth}.md",
-                mime="text/markdown",
-                use_container_width=True,
-            )
 
     # ═══ PAGE: SETTINGS ═══
     if st.session_state._page == "settings":
@@ -1437,7 +1412,7 @@ def run():
                     "HOLD": "#faad14", "UNDERWEIGHT": "#fa541c",
                     "SELL": "#FF5252",
                 }.get(rating.upper(), "#8c8c8c")
-                cols = st.columns([4, 2, 1.5, 1.5, 1])
+                cols = st.columns([4, 2, 1.2, 1, 0.7, 0.5, 0.5])
                 with cols[0]:
                     st.write(f"{market_icon} **{name}** ({sym})")
                 with cols[1]:
@@ -1465,6 +1440,27 @@ def run():
                             st.session_state._cached_result = full
                             st.session_state._page = "main"
                             st.rerun()
+                export_key = f"hist_export_{i}"
+                if st.session_state.get(export_key) == i:
+                    full = _load_from_history(entry)
+                    if full:
+                        ec1, ec2 = st.columns(2)
+                        with ec1:
+                            st.download_button(
+                                label="PDF", key=f"hist_pdf_{i}",
+                                data=_build_pdf_report(full.get("state", {}), sym, dt, market, depth),
+                                file_name=f"{sym}_{dt}_{depth}.pdf", mime="application/pdf",
+                            )
+                        with ec2:
+                            st.download_button(
+                                label="MD", key=f"hist_md_{i}",
+                                data=_build_export_report(full.get("state", {}), sym, dt, market, depth),
+                                file_name=f"{sym}_{dt}_{depth}.md", mime="text/markdown",
+                            )
+                with cols[5]:
+                    if st.button("PDF", key=f"hist_pdfbtn_{i}"):
+                        st.session_state[export_key] = i
+                        st.rerun()
             st.divider()
         c1, c2 = st.columns(2)
         with c1:

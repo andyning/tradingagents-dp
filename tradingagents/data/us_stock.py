@@ -55,27 +55,10 @@ def _get_ib():
 def get_kline_daily(
     symbol: str, start_date: str, end_date: str, adjust: str = "qfq",
 ) -> pd.DataFrame:
-    sources = []
-    # yfinance library first (handles Yahoo's cookie/crumb/rate-limit internally)
-    try:
-        import yfinance as yf  # noqa: F811
-        def _yf_kline(**kw):
-            t = yf.Ticker(kw["symbol"])
-            df = t.history(start=kw["start_date"], end=kw["end_date"])
-            if df.empty:
-                return pd.DataFrame()
-            df = df.reset_index()
-            df.columns = [c.lower() for c in df.columns]
-            col_map = {"open": "open", "high": "high", "low": "low", "close": "close", "volume": "volume"}
-            df = df.rename(columns={k: v for k, v in col_map.items() if k in df.columns})
-            if "date" not in df.columns and "index" in df.columns:
-                df["date"] = df["index"]
-            return df
-        sources.append(("yfinance_lib", _yf_kline, 30))
-    except Exception:
-        pass
-    sources.append(("yahoo_http", lambda **kw: _yahoo.kline_daily(**kw)))
-    sources.append(("eastmoney", lambda **kw: _eastmoney.us_kline_daily(**kw)))
+    sources = [
+        ("yahoo", lambda **kw: _yahoo.kline_daily(**kw)),
+        ("eastmoney", lambda **kw: _eastmoney.us_kline_daily(**kw)),
+    ]
     futu = _get_futu()
     if futu:
         sources.append(("futu", lambda **kw: futu.kline_daily(**kw)))
@@ -116,29 +99,10 @@ def get_kline_monthly(
 # ── Quote ──────────────────────────────────────────────────────────────
 
 def get_quote(symbol: str) -> pd.DataFrame:
-    sources = []
-    # yfinance library first (handles auth)
-    try:
-        import yfinance as yf  # noqa: F811
-        def _yf_quote(**kw):
-            t = yf.Ticker(kw["symbol"])
-            info = t.info
-            if not info:
-                return pd.DataFrame()
-            return pd.DataFrame([{
-                "symbol": kw["symbol"],
-                "name": info.get("longName") or info.get("shortName", ""),
-                "price": info.get("currentPrice") or info.get("regularMarketPrice", 0),
-                "change_pct": info.get("regularMarketChangePercent", 0),
-                "pe": info.get("trailingPE"),
-                "pb": info.get("priceToBook"),
-                "market_cap": info.get("marketCap"),
-            }])
-        sources.append(("yfinance_lib", _yf_quote, 15))
-    except Exception:
-        pass
-    sources.append(("yahoo_http", lambda **kw: _yahoo.quote(**kw)))
-    sources.append(("eastmoney", lambda **kw: _eastmoney.quote(**kw)))
+    sources = [
+        ("yahoo", lambda **kw: _yahoo.quote(**kw)),
+        ("eastmoney", lambda **kw: _eastmoney.quote(**kw)),
+    ]
     futu = _get_futu()
     if futu:
         sources.append(("futu", lambda **kw: futu.quote(**kw)))
@@ -196,22 +160,9 @@ def get_cash_flow(symbol: str) -> pd.DataFrame:
 # ── News ───────────────────────────────────────────────────────────────
 
 def get_news(symbol: str, limit: int = 20) -> pd.DataFrame:
-    sources = []
-    try:
-        import yfinance as yf
-        def _yf_news(**kw):
-            try:
-                t = yf.Ticker(kw["symbol"])
-                items = t.news[:kw.get("limit", 20)]
-                rows = [{"title": n.get("title", ""), "source": n.get("publisher", ""),
-                         "url": n.get("link", ""), "summary": n.get("summary", "")} for n in items]
-                return pd.DataFrame(rows)
-            except Exception:
-                return pd.DataFrame()
-        sources.append(("yfinance_lib", _yf_news, 15))
-    except Exception:
-        pass
-    sources.append(("yahoo_http", lambda **kw: _yahoo.news(**kw)))
+    sources = [
+        ("yahoo", lambda **kw: _yahoo.news(**kw)),
+    ]
     ib = _get_ib()
     if ib:
         sources.append(("ib", lambda **kw: ib.news(**kw), None))

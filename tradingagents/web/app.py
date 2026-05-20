@@ -217,11 +217,12 @@ def _probe_llm():
 
 
 def _probe_yahoo():
-    """Probe Yahoo Finance HTTP API — quick chart data check."""
+    """Probe Yahoo Finance via yfinance library (handles cookie/crumb auth)."""
     try:
-        from tradingagents.data.http.yahoo import fetch_kline
-        rows = fetch_kline("AAPL", "us_stock", "1d", count=1, timeout=8)
-        return len(rows) > 0
+        import yfinance as yf
+        t = yf.Ticker("AAPL")
+        df = t.history(period="5d")
+        return not df.empty
     except Exception:
         return False
 

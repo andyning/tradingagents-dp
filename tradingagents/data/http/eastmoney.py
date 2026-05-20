@@ -189,14 +189,15 @@ def fetch_snapshot(secid: str, timeout: float = 10) -> Optional[dict]:
         if not data.get("data"):
             return None
         d = data["data"]
-        # Eastmoney f43 (price) can be in 分 (×100) for A-shares
+        # A-shares (secid 0.x or 1.x): f43 is in 分 (×100)
+        # HK stocks (secid 116.x) and US (105.x/106.x): price in native units
+        _is_a_share = secid.startswith(("0.", "1."))
+        _scale = 100.0 if _is_a_share else 1.0
         raw_price = _safe_float(d.get("f43"), 0.0)
         raw_high = _safe_float(d.get("f44"), 0.0)
         raw_low = _safe_float(d.get("f45"), 0.0)
         raw_open = _safe_float(d.get("f46"), 0.0)
         raw_pre = _safe_float(d.get("f60"), 0.0)
-        # Detect unit: if price > 100000, likely in 分 (×100)
-        _scale = 100.0 if raw_price > 100000 else 1.0
         return {
             "symbol": d.get("f57", ""),
             "name": d.get("f58", ""),
@@ -266,7 +267,7 @@ def fetch_fund_flow(secid: str, days: int = 30, timeout: float = 15) -> pd.DataF
         rows = []
         for row_str in data["data"]["klines"]:
             parts = row_str.split(",")
-            if len(parts) < 10:
+            if len(parts) < 12:
                 continue
             try:
                 rows.append({
@@ -299,13 +300,11 @@ def fetch_news_eastmoney(symbol: str, limit: int = 20, timeout: float = 15) -> p
         "page_index": 1,
         "stock_list": s,
     }
-    headers = {
-        "User-Agent": _get_session("news").headers.get("User-Agent", ""),
-        "Referer": "https://data.eastmoney.com/",
-    }
+    sess = _get_session("news")
+    headers = {"Referer": "https://data.eastmoney.com/"}
 
     try:
-        resp = requests.get(url, params=params, headers=headers, timeout=timeout)
+        resp = sess.get(url, params=params, headers=headers, timeout=timeout)
         resp.raise_for_status()
         data = resp.json()
         items = data.get("data", {}).get("list", [])
@@ -661,6 +660,8 @@ class EastmoneySource:
     def _to_secid(self, symbol: str) -> str:
         if self._market == "hk_stock":
             return _hk_secid(symbol)
+        if self._market == "us_stock":
+            return _us_secid(symbol)
         return _a_secid(symbol)
 
     # K-line ------------------------------------------------------------

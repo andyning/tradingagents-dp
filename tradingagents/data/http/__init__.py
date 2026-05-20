@@ -260,7 +260,8 @@ class _ResilientSession:
                     if alt_mode:
                         self._sess.proxies = {"http": _proxy_url, "https": _proxy_url}
                     self._use_proxy = alt_mode
-                    _profile[self._host] = alt_mode
+                    with _profile_lock:
+                        _profile[self._host] = alt_mode
                     continue
                 raise
 

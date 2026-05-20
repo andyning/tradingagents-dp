@@ -421,6 +421,10 @@ def _fetch_stock_data(symbol: str, market: str, days: int = 30):
                 info["is_profitable"] = "亏损"
             elif pe_val > 0:
                 info["is_profitable"] = "盈利"
+        # PE-动 fallback: use PE-TTM when not available (HK stocks)
+        if info.get("pe_forward") is None or (isinstance(info["pe_forward"], float) and info["pe_forward"] != info["pe_forward"]):
+            if info.get("pe") is not None and info["pe"] == info["pe"]:
+                info["pe_forward"] = info["pe"]
         # Float shares / total shares still need Futu — leave as None
         # Enrich with extra metrics from Futu if available
         info = _enrich_stock_info(info, symbol, market)

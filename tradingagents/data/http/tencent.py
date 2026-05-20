@@ -83,6 +83,9 @@ def fetch_quote(code: str, timeout: float = 10) -> Optional[dict]:
     Returns dict with keys: symbol, name, last, change, change_pct,
     high, low, open, pre_close, volume, amount, turnover, pe, pb,
     market_cap, timestamp.
+
+    Field layout differs between A-shares (sh/sz prefix, 88 fields)
+    and HK stocks (hk prefix, 78 fields).  We dispatch on the prefix.
     """
     _rate_limit()
     url = f"https://qt.gtimg.cn/q={code}"
@@ -97,8 +100,6 @@ def fetch_quote(code: str, timeout: float = 10) -> Optional[dict]:
         if not text or "~" not in text:
             return None
 
-        # Extract the payload between =" and trailing "
-        # Format: v_sh600519="1~name~code~last~prev~open~..."
         match = re.search(r'="(.*)"', text)
         if not match:
             return None
@@ -118,28 +119,68 @@ def fetch_quote(code: str, timeout: float = 10) -> Optional[dict]:
             except (ValueError, IndexError):
                 return default
 
-        return {
-            "symbol": _f(2, ""),
-            "name": _f(1, ""),
-            "last": _float(3),
-            "change": _float(31),
-            "change_pct": _float(32),
-            "high": _float(33),
-            "low": _float(34),
-            "open": _float(5),
-            "pre_close": _float(4),
-            "volume": int(_float(6)),
-            "amount": _float(37) * 10000 if _float(37) else 0.0,  # 万->元
-            "turnover": _float(38),
-            "pe": _float(39) if _float(39) else None,
-            "pe_forward": _float(53) if _float(53) else None,     # PE-动
-            "pb": _float(46) if _float(46) else None,
-            "market_cap": _float(44) if _float(44) else None,     # 总市值(亿)
-            "float_market_cap": _float(45) if _float(45) else None, # 流通市值(亿)
-            "total_shares": int(_float(72)) if _float(72) else None,   # 总股本(股)
-            "float_shares": int(_float(73)) if _float(73) else None,   # 流通股本(股)
-            "timestamp": datetime.now(),
-        }
+        is_hk = code.startswith("hk")
+
+        if is_hk:
+            # HK stock field layout (78 fields)
+            # Reference: [1]name [2]code [3]price [4]prev [5]open
+            #   [31]change [32]change% [33]high [34]low
+            #   [36]volume [37]amount [38]turnover% [39]PE
+            #   [44]market_cap_HKD [45]market_cap_CNY
+            #   [50]volume_ratio [69]total_shares [70]float_shares
+            result = {
+                "symbol": _f(2, ""),
+                "name": _f(1, ""),
+                "last": _float(3),
+                "change": _float(31),
+                "change_pct": _float(32),
+                "high": _float(33),
+                "low": _float(34),
+                "open": _float(5),
+                "pre_close": _float(4),
+                "volume": int(_float(36)),
+                "amount": _float(37),  # HK amount already in raw units
+                "turnover": _float(38),
+                "pe": _float(39) if _float(39) else None,
+                "pe_forward": None,  # HK quote doesn't have separate PE-动
+                "pb": None,  # HK quote PB at a different index, not reliable
+                "market_cap": _float(45) if _float(45) else None,     # 总市值(亿), CNY
+                "float_market_cap": _float(44) if _float(44) else None, # HKD market cap
+                "total_shares": int(_float(69)) if _float(69) else None,
+                "float_shares": int(_float(70)) if _float(70) else None,
+                "timestamp": datetime.now(),
+            }
+        else:
+            # A-stock field layout (88 fields)
+            result = {
+                "symbol": _f(2, ""),
+                "name": _f(1, ""),
+                "last": _float(3),
+                "change": _float(31),
+                "change_pct": _float(32),
+                "high": _float(33),
+                "low": _float(34),
+                "open": _float(5),
+                "pre_close": _float(4),
+                "volume": int(_float(6)),
+                "amount": _float(37) * 10000 if _float(37) else 0.0,  # 万->元
+                "turnover": _float(38),
+                "pe": _float(39) if _float(39) else None,
+                "pe_forward": _float(53) if _float(53) else None,     # PE-动
+                "pb": _float(46) if _float(46) else None,
+                "market_cap": _float(44) if _float(44) else None,     # 总市值(亿)
+                "float_market_cap": _float(45) if _float(45) else None, # 流通市值(亿)
+                "total_shares": int(_float(72)) if _float(72) else None,   # 总股本(股)
+                "float_shares": int(_float(73)) if _float(73) else None,   # 流通股本(股)
+                "timestamp": datetime.now(),
+            }
+
+        # If pe is negative (亏损), pe_forward should also reflect that
+        if result.get("pe") is not None and result["pe"] < 0:
+            if result.get("pe_forward") is None:
+                result["pe_forward"] = result["pe"]
+
+        return result
     except Exception:
         logger.debug("Tencent quote failed for %s", code, exc_info=True)
         return None

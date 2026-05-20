@@ -25,14 +25,26 @@ from tradingagents.logging import get_logger
 
 logger = get_logger(__name__)
 
-from tradingagents.data.http import get_http_session as _get_http_session
+from tradingagents.data.http import resilient_session
 
 _last_request = 0.0
 _MIN_INTERVAL = 0.2
 
+# Eastmoney uses multiple subdomains — probe them independently
+_EM_HOSTS = {
+    "kline": "push2.eastmoney.com",
+    "snapshot": "push2.eastmoney.com",
+    "fundflow": "push2.eastmoney.com",
+    "clist": "push2.eastmoney.com",
+    "kamt": "push2.eastmoney.com",
+    "datacenter": "datacenter.eastmoney.com",
+    "news": "np-anotice-stock.eastmoney.com",
+}
 
-def _get_session() -> requests.Session:
-    return _get_http_session()
+
+def _get_session(endpoint: str = "kline"):
+    host = _EM_HOSTS.get(endpoint, "push2.eastmoney.com")
+    return resilient_session(host)
 
 
 def _rate_limit():
@@ -116,7 +128,7 @@ def fetch_kline(
     }
 
     try:
-        resp = _get_session().get(url, params=params, timeout=timeout)
+        resp = _get_session("kline").get(url, params=params, timeout=timeout)
         resp.raise_for_status()
         data = resp.json()
         if data.get("rc") != 0 or not data.get("data"):
@@ -171,7 +183,7 @@ def fetch_snapshot(secid: str, timeout: float = 10) -> Optional[dict]:
     params = {"secid": secid, "fields": fields}
 
     try:
-        resp = _get_session().get(url, params=params, timeout=timeout)
+        resp = _get_session("snapshot").get(url, params=params, timeout=timeout)
         resp.raise_for_status()
         data = resp.json()
         if not data.get("data"):
@@ -245,7 +257,7 @@ def fetch_fund_flow(secid: str, days: int = 30, timeout: float = 15) -> pd.DataF
     }
 
     try:
-        resp = _get_session().get(url, params=params, timeout=timeout)
+        resp = _get_session("fundflow").get(url, params=params, timeout=timeout)
         resp.raise_for_status()
         data = resp.json()
         if not data.get("data") or not data["data"].get("klines"):
@@ -288,7 +300,7 @@ def fetch_news_eastmoney(symbol: str, limit: int = 20, timeout: float = 15) -> p
         "stock_list": s,
     }
     headers = {
-        "User-Agent": _get_session().headers.get("User-Agent", ""),
+        "User-Agent": _get_session("news").headers.get("User-Agent", ""),
         "Referer": "https://data.eastmoney.com/",
     }
 
@@ -372,7 +384,7 @@ def fetch_hot_stocks(limit: int = 20, timeout: float = 15) -> pd.DataFrame:
     }
 
     try:
-        resp = _get_session().get(url, params=params, timeout=timeout)
+        resp = _get_session("clist").get(url, params=params, timeout=timeout)
         resp.raise_for_status()
         data = resp.json()
         items = data.get("data", {}).get("diff", [])
@@ -413,7 +425,7 @@ def fetch_northbound_flow(days: int = 30, timeout: float = 15) -> pd.DataFrame:
     }
 
     try:
-        resp = _get_session().get(url, params=params, timeout=timeout)
+        resp = _get_session("kamt").get(url, params=params, timeout=timeout)
         resp.raise_for_status()
         data = resp.json()
         if not data.get("data"):
@@ -484,7 +496,7 @@ def fetch_dragon_tiger(symbol: str, days: int = 30, timeout: float = 15) -> pd.D
     }
 
     try:
-        resp = _get_session().get(url, params=params, timeout=timeout)
+        resp = _get_session("clist").get(url, params=params, timeout=timeout)
         resp.raise_for_status()
         items = resp.json().get("data", {}).get("diff", [])
         if not items:
@@ -532,7 +544,7 @@ def fetch_lockup_expiry(symbol: str, months: int = 6, timeout: float = 15) -> pd
     }
 
     try:
-        resp = _get_session().get(url, params=params, timeout=timeout)
+        resp = _get_session("datacenter").get(url, params=params, timeout=timeout)
         resp.raise_for_status()
         result = resp.json()
         items = (result.get("result") or {}).get("data") or []
@@ -574,7 +586,7 @@ def fetch_profit_forecast(symbol: str, timeout: float = 15) -> pd.DataFrame:
     }
 
     try:
-        resp = _get_session().get(url, params=params, timeout=timeout)
+        resp = _get_session("datacenter").get(url, params=params, timeout=timeout)
         resp.raise_for_status()
         items = (resp.json().get("result") or {}).get("data") or []
         if not items:
@@ -615,7 +627,7 @@ def fetch_insider_transactions(symbol: str, timeout: float = 15) -> pd.DataFrame
     }
 
     try:
-        resp = _get_session().get(url, params=params, timeout=timeout)
+        resp = _get_session("datacenter").get(url, params=params, timeout=timeout)
         resp.raise_for_status()
         items = (resp.json().get("result") or {}).get("data") or []
         if not items:

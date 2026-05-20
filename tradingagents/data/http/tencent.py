@@ -24,14 +24,16 @@ from tradingagents.logging import get_logger
 logger = get_logger(__name__)
 
 # ── shared session with retry-friendly headers ─────────────────────────
-from tradingagents.data.http import get_http_session as _get_http_session
+from tradingagents.data.http import resilient_session
 
 _last_request = 0.0
 _MIN_INTERVAL = 0.15  # seconds between requests
 
+_TENCENT_HOST = "web.ifzq.gtimg.cn"
 
-def _get_session() -> requests.Session:
-    return _get_http_session()
+
+def _get_session():
+    return resilient_session(_TENCENT_HOST)
 
 
 def _rate_limit():

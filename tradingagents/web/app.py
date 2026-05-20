@@ -182,13 +182,13 @@ def _probe_tencent():
 
 
 def _probe_eastmoney():
-    """Probe Eastmoney HTTP API — verify K-line endpoint responds."""
+    """Probe Eastmoney HTTP API — verify snapshot endpoint responds."""
     try:
-        import requests
-        resp = requests.get(
-            "https://push2his.eastmoney.com/api/qt/stock/kline/get",
-            params={"secid": "1.600519", "klt": 101, "lmt": 1,
-                    "fields1": "f1", "fields2": "f51"},
+        from tradingagents.data.http import resilient_session
+        sess = resilient_session("push2.eastmoney.com")
+        resp = sess.get(
+            "https://push2.eastmoney.com/api/qt/stock/get",
+            params={"secid": "1.600519", "fields": "f57,f58,f43"},
             timeout=5,
         )
         return resp.status_code == 200
@@ -1329,6 +1329,9 @@ def run():
     with b1:
         if st.button("↻ Refresh", key="refresh_data_btn", help="Refresh stock data & K-line chart"):
             _fetch_stock_data.clear()
+            from tradingagents.data.http import reset_connectivity_profile, clear_http_session
+            clear_http_session()
+            reset_connectivity_profile()
             for k in ("tencent", "eastmoney", "yahoo", "futu", "ib"):
                 st.session_state.pop(f"_health_{k}", None)
             import os as _os_env

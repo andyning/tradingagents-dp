@@ -26,16 +26,18 @@ from tradingagents.logging import get_logger
 
 logger = get_logger(__name__)
 
-from tradingagents.data.http import get_http_session as _get_http_session
+from tradingagents.data.http import resilient_session
 
 _crumb: Optional[str] = None
 _last_request = 0.0
 _MIN_INTERVAL = 3.0  # Yahoo rate-limits aggressively
 
+_YAHOO_HOST = "query2.finance.yahoo.com"
+
 
 def _get_session() -> requests.Session:
     global _crumb
-    sess = _get_http_session()
+    sess = resilient_session(_YAHOO_HOST)
     if _crumb is None:
         # Obtain cookie + crumb (same flow as yfinance library)
         try:

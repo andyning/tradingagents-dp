@@ -238,9 +238,9 @@ HEALTH_HINTS = {
 }
 
 HEALTH_CATEGORIES = {
-    "LLM":        ["llm"],
-    "A-Stock":    ["tencent", "eastmoney", "futu"],
-    "US/HK":      ["yahoo", "eastmoney", "ib", "futu"],
+    "LLM":           ["llm"],
+    "HTTP Sources":  ["tencent", "eastmoney", "yahoo"],
+    "Brokers":       ["futu", "ib"],
 }
 
 def _update_health(key: str, ok: bool | None):

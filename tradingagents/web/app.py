@@ -28,6 +28,11 @@ warnings.filterwarnings("ignore", category=ResourceWarning)
 warnings.filterwarnings("ignore", message=".*unclosed database.*")
 warnings.filterwarnings("ignore", message=".*unclosed .*socket.*")
 
+# Suppress Streamlit's ScriptRunContext warning in background threads
+import logging as _logging
+_logging.getLogger("streamlit.runtime.scriptrunner_utils.script_run_context").setLevel(_logging.ERROR)
+_logging.getLogger("streamlit.runtime.state.session_state_proxy").setLevel(_logging.ERROR)
+
 st.set_page_config(page_title="TradingAgents", page_icon="", layout="wide", initial_sidebar_state="expanded")
 
 # ── CSS ─────────────────────────────────────────────────────────────────

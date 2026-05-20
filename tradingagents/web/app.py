@@ -184,7 +184,7 @@ def _probe_eastmoney():
 
 
 def _probe_llm():
-    """Probe DeepSeek API — quick connectivity check with 3s timeout."""
+    """Probe DeepSeek API — quick connectivity check with 5s timeout."""
     try:
         from tradingagents.config import get_settings
         settings = get_settings()
@@ -192,13 +192,23 @@ def _probe_llm():
         if not key:
             return False
         import openai
-        client = openai.OpenAI(api_key=key, base_url=settings.llm_base_url, timeout=3)
+        client = openai.OpenAI(api_key=key, base_url=settings.llm_base_url, timeout=5)
         client.chat.completions.create(
             model=settings.quick_think_model,
             messages=[{"role": "user", "content": "ping"}],
             max_tokens=1,
         )
         return True
+    except Exception:
+        return False
+
+
+def _probe_yahoo():
+    """Probe Yahoo Finance HTTP API — quick chart data check."""
+    try:
+        from tradingagents.data.http.yahoo import fetch_kline
+        rows = fetch_kline("AAPL", "us_stock", "1d", count=1, timeout=8)
+        return len(rows) > 0
     except Exception:
         return False
 
@@ -228,9 +238,10 @@ def _probe_all_now(keys: list[str] | None = None):
     """Probe multiple sources concurrently with a 5s overall timeout.
     If keys is None, probes all known sources."""
     if keys is None:
-        keys = ["llm", "tencent", "eastmoney", "futu", "ib"]
+        keys = ["llm", "tencent", "eastmoney", "yahoo", "futu", "ib"]
     probes_map = {"llm": _probe_llm, "tencent": _probe_tencent,
-                  "eastmoney": _probe_eastmoney, "futu": _probe_futu, "ib": _probe_ib}
+                  "eastmoney": _probe_eastmoney, "yahoo": _probe_yahoo,
+                  "futu": _probe_futu, "ib": _probe_ib}
     import concurrent.futures
     results = {}
     try:
@@ -1115,7 +1126,7 @@ def run():
         can_run = not st.session_state._running and market is not None
         if st.button("▶  Run Analysis", type="primary", disabled=not can_run, use_container_width=True):
             # Quick health probe before starting pipeline
-            _probe_all_now(["tencent", "eastmoney", "futu", "ib"])
+            _probe_all_now(["llm", "tencent", "eastmoney", "yahoo", "futu", "ib"])
             st.session_state._running = True
             st.session_state._done = False
             st.session_state._from_cache = False
@@ -1215,7 +1226,7 @@ def run():
             except Exception:
                 pass
             # Quick probe of core sources so health bar shows status
-            _probe_all_now(["tencent", "eastmoney", "futu", "ib"])
+            _probe_all_now(["llm", "tencent", "eastmoney", "yahoo", "futu", "ib"])
             st.rerun()
 
     def _mc(label, value, fmt=None, color_class=""):

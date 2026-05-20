@@ -347,6 +347,27 @@ def _fetch_stock_data(symbol: str, market: str, days: int = 30):
                 info["vol_ratio"] = None
         # Get display name — multi-source fallback per market
         info["name"] = _lookup_stock_name(symbol, market)
+        # Enrich PE/PB/change_pct from quote if missing from K-line (Tencent K-line is OHLCV-only)
+        if info.get("pe") is None or (isinstance(info["pe"], float) and info["pe"] != info["pe"]) or \
+           info.get("pb") is None or (isinstance(info["pb"], float) and info["pb"] != info["pb"]) or \
+           info.get("change_pct") is None or info.get("turn") is None:
+            try:
+                qdf = mod.get_quote(symbol)
+                if not qdf.empty:
+                    qr = qdf.iloc[0]
+                    for k in ("pe", "pb", "change_pct", "turnover", "market_cap"):
+                        qv = qr.get(k)
+                        if qv is not None and (not isinstance(qv, float) or qv == qv):
+                            if k == "turnover":
+                                info["turn"] = float(qv) if qv else None
+                            elif info.get(k) is None or (isinstance(info[k], float) and info[k] != info[k]):
+                                info[k] = float(qv) if qv else None
+                    # Also get name from quote if still unknown
+                    qname = qr.get("name", "")
+                    if qname and qname != symbol and info.get("name") == symbol:
+                        info["name"] = str(qname)
+            except Exception:
+                pass
         # Enrich with extra metrics from Futu if available
         info = _enrich_stock_info(info, symbol, market)
         return info, df

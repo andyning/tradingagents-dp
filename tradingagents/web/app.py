@@ -1179,6 +1179,55 @@ def run():
         market = _detect_market(symbol)
         st.markdown(f'<div style="color:rgba(255,255,255,.45);font-size:0.88rem;padding:2px 0">{_market_label(market)}</div>', unsafe_allow_html=True)
 
+        # ── Analysis History ──
+        st.divider()
+        st.markdown("**Analysis History**")
+        history = _load_history()
+        if not history:
+            st.caption("No history yet — run your first analysis.")
+        else:
+            st.caption(f"{len(history)} records")
+            for i, entry in enumerate(history[:20]):
+                sym = entry.get("symbol", "?")
+                dt = entry.get("trade_date", "")[:10]
+                rating = entry.get("rating", "HOLD")
+                depth = entry.get("depth", "")
+                name = entry.get("name", "") or sym
+                conf = entry.get("confidence", 0)
+                badge_color = {
+                    "BUY": "#00E676", "OVERWEIGHT": "#1890FF",
+                    "HOLD": "#faad14", "UNDERWEIGHT": "#fa541c",
+                    "SELL": "#FF5252",
+                }.get(rating.upper(), "#8c8c8c")
+                cols = st.columns([8, 1.5])
+                with cols[0]:
+                    btn_label = f"{name} ({sym}) — {dt} · {depth}"
+                    if st.button(btn_label, key=f"hist_{i}", use_container_width=True,
+                                help=f"Rating: {rating} · Confidence: {conf:.0%}"):
+                        full = _load_from_history(entry)
+                        if full:
+                            p = get_progress()
+                            p.finished = True
+                            p.step_results["__state__"] = full.get("state", {})
+                            p.step_results["__decision__"] = full.get("decision", "")
+                            p.step_results["__signal__"] = full.get("signal", {})
+                            st.session_state._done = True
+                            st.session_state._from_cache = True
+                            st.session_state._cached_result = full
+                            st.rerun()
+                with cols[1]:
+                    st.markdown(
+                        f'<span style="display:inline-block;padding:2px 8px;border-radius:3px;'
+                        f'background:{badge_color}22;color:{badge_color};font-size:0.7rem;'
+                        f'font-weight:600;margin-top:6px">{rating}</span>',
+                        unsafe_allow_html=True,
+                    )
+            if len(history) > 20:
+                st.caption(f"... and {len(history) - 20} more")
+            if st.button("Clear All History", type="secondary", use_container_width=True):
+                _clear_history()
+                st.rerun()
+
         # Validate ticker format
         if market is None:
             sym = symbol.strip()
@@ -1283,56 +1332,6 @@ def run():
         c1.markdown(f'<div class="tbox"><div class="tv">{p_now.tokens_in:,}</div><div class="tl">Input</div></div>', unsafe_allow_html=True)
         c2.markdown(f'<div class="tbox"><div class="tv">{p_now.tokens_out:,}</div><div class="tl">Output</div></div>', unsafe_allow_html=True)
         c3.markdown(f'<div class="tbox"><div class="tv">{p_now.tokens_total:,}</div><div class="tl">Total</div></div>', unsafe_allow_html=True)
-
-        # ── Analysis History ──
-        st.divider()
-        st.markdown("**Analysis History**")
-        history = _load_history()
-        if not history:
-            st.caption("No history yet — run your first analysis.")
-        else:
-            st.caption(f"{len(history)} records (most recent first)")
-            # Show latest 30 entries
-            for i, entry in enumerate(history[:30]):
-                sym = entry.get("symbol", "?")
-                dt = entry.get("trade_date", "")[:10]
-                rating = entry.get("rating", "HOLD")
-                depth = entry.get("depth", "")
-                name = entry.get("name", "") or sym
-                conf = entry.get("confidence", 0)
-                badge_color = {
-                    "BUY": "#00E676", "OVERWEIGHT": "#1890FF",
-                    "HOLD": "#faad14", "UNDERWEIGHT": "#fa541c",
-                    "SELL": "#FF5252",
-                }.get(rating.upper(), "#8c8c8c")
-                cols = st.columns([8, 1.5])
-                with cols[0]:
-                    btn_label = f"{name} ({sym}) — {dt} · {depth}"
-                    if st.button(btn_label, key=f"hist_{i}", use_container_width=True,
-                                help=f"Rating: {rating} · Confidence: {conf:.0%}"):
-                        full = _load_from_history(entry)
-                        if full:
-                            p = get_progress()
-                            p.finished = True
-                            p.step_results["__state__"] = full.get("state", {})
-                            p.step_results["__decision__"] = full.get("decision", "")
-                            p.step_results["__signal__"] = full.get("signal", {})
-                            st.session_state._done = True
-                            st.session_state._from_cache = True
-                            st.session_state._cached_result = full
-                            st.rerun()
-                with cols[1]:
-                    st.markdown(
-                        f'<span style="display:inline-block;padding:2px 8px;border-radius:3px;'
-                        f'background:{badge_color}22;color:{badge_color};font-size:0.7rem;'
-                        f'font-weight:600;margin-top:6px">{rating}</span>',
-                        unsafe_allow_html=True,
-                    )
-            if len(history) > 30:
-                st.caption(f"... and {len(history) - 30} more")
-            if st.button("Clear All History", type="secondary", use_container_width=True):
-                _clear_history()
-                st.rerun()
 
     # ═══ CACHE CHECK ═══
     # When user changes symbol/depth, auto-load cached result if exists

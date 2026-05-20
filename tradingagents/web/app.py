@@ -32,75 +32,112 @@ st.set_page_config(page_title="TradingAgents", page_icon="", layout="wide", init
 
 # ── CSS ─────────────────────────────────────────────────────────────────
 st.markdown("""<style>
-    .stApp { background: #f8fafc; font-size: 0.88rem; }
-    .main .block-container { padding: 1.5rem 2rem; max-width: 1400px; }
-    /* Sidebar — Mars Green */
-    section[data-testid="stSidebar"] { background: #018474; border-right: none; min-width: 24rem !important; }
-    section[data-testid="stSidebar"] h3 { color: #fff !important; font-size: 2.56rem !important; font-weight: 800 !important; letter-spacing: .02em !important; white-space: nowrap !important; }
-    section[data-testid="stSidebar"] .stCaption { color: rgba(255,255,255,.7) !important; font-size: 1.28rem !important; }
-    section[data-testid="stSidebar"] .stMarkdown,
-    section[data-testid="stSidebar"] p, section[data-testid="stSidebar"] span,
-    section[data-testid="stSidebar"] label,
-    section[data-testid="stSidebar"] div { color: #fff !important; }
-    section[data-testid="stSidebar"] .stMarkdown p strong { color: #fff !important; font-weight: 700 !important; font-size: 1.31rem !important; letter-spacing: .04em !important; }
-    section[data-testid="stSidebar"] hr { border-color: rgba(255,255,255,.2) !important; }
-    /* Sidebar input labels: bold */
-    .ig-label { font-size: 1.12rem !important; color: rgba(255,255,255,.8) !important; font-weight: 700 !important; text-transform: uppercase; letter-spacing: .06em; margin: 10px 0 4px 0; }
-    h2, h3 { color: #111827; font-weight: 600; }
-    .mc { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px 16px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
-    .mc .mcl { font-size: 1.09rem; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; font-weight: 500; }
-    .mc .mcv { font-size: 2rem; font-weight: 700; color: #111827; }
-    .mc .mcs { font-size: 1.25rem; margin-top: 2px; }
-    .up { color: #dc2626 !important; } .down { color: #059669 !important; }
-    .badge { display: inline-block; padding: 5px 20px; border-radius: 6px; font-weight: 700; font-size: 1.52rem; letter-spacing: .03em; }
-    .badge-BUY { background: #d1fae5; color: #065f46; border: 1px solid #10b981; }
-    .badge-OVERWEIGHT { background: #dbeafe; color: #1e40af; border: 1px solid #3b82f6; }
-    .badge-HOLD { background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; }
-    .badge-UNDERWEIGHT { background: #ffedd5; color: #9a3412; border: 1px solid #f97316; }
-    .badge-SELL { background: #fee2e2; color: #991b1b; border: 1px solid #ef4444; }
-    .srow { display: flex; align-items: center; gap: 6px; padding: 3px 0; }
-    .sdot { width: 14px; text-align: center; font-size: 1.12rem; flex-shrink: 0; }
-    .slbl { font-size: 1.25rem; white-space: nowrap; }
-    .s-act .sdot { color: #2563eb; } .s-act .slbl { color: #2563eb; font-weight: 600; }
-    .s-done .sdot { color: #059669; } .s-done .slbl { color: #059669; }
-    .s-wait .sdot { color: #d1d5db; } .s-wait .slbl { color: #9ca3af; }
-    .tbox { text-align: center; padding: 8px 4px; background: rgba(255,255,255,.15); border-radius: 6px; }
-    .tbox .tv { font-size: 1.41rem; font-weight: 700; color: #fff; }
-    .tbox .tl { font-size: 0.99rem; color: rgba(255,255,255,.7); text-transform: uppercase; }
-    .dash-panel { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px 20px; box-shadow: 0 1px 2px rgba(0,0,0,.04); margin-bottom: 10px; }
-    .dash-panel h4 { color: #111827; font-size: 1.36rem; font-weight: 600; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #f1f5f9; }
-    .dash-panel p { font-size: 1.28rem; color: #4b5563; line-height: 1.5; }
-    /* Tab titles */
-    [data-baseweb="tab"] button,
-    [data-baseweb="tab"] p,
-    [data-baseweb="tab"] span,
-    button[data-baseweb="tab"] { font-size: 1.28rem !important; font-weight: 700 !important; }
-    .stTabs [data-baseweb="tab"] { font-size: 1.28rem !important; font-weight: 700 !important; }
-    .stProgress > div > div > div > div { background: #2563eb; }
-    /* Input field emphasis */
-    section[data-testid="stSidebar"] input[type="text"],
-    section[data-testid="stSidebar"] [data-baseweb="select"],
-    section[data-testid="stSidebar"] [data-testid="stDateInput"] input {
-        border: 1.5px solid rgba(255,255,255,.4) !important; border-radius: 6px !important; background: #fff !important; color: #111827 !important;
-    }
-    section[data-testid="stSidebar"] input[type="text"]::placeholder { color: #9ca3af !important; }
-    section[data-testid="stSidebar"] [data-baseweb="select"] * { color: #111827 !important; }
-    /* Run & Clear buttons: Prussian blue */
-    section[data-testid="stSidebar"] button[kind="primary"],
-    section[data-testid="stSidebar"] button[kind="secondary"] {
-        background: #0D3869 !important; border-color: #0D3869 !important; color: #fff !important;
-    }
-    section[data-testid="stSidebar"] button[kind="primary"]:hover,
-    section[data-testid="stSidebar"] button[kind="secondary"]:hover {
-        background: #0a2d55 !important; border-color: #0a2d55 !important;
-    }
-    header, footer, #MainMenu { visibility: hidden; }
-    /* Refresh button — match Prussian blue */
-    .stButton button { border-radius: 6px !important; font-size: 1.25rem !important; padding: 4px 12px !important;
-        color: #fff !important; border: 1px solid #0D3869 !important; background: #0D3869 !important; font-weight: 500 !important; }
-    .stButton button:hover { background: #0a2d55 !important; border-color: #0a2d55 !important; }
-    header, footer, #MainMenu, [data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecoration"], [data-testid="stStatusWidget"] { display: none !important; }
-</style>""", unsafe_allow_html=True)
+	    /* ====== QD Color System ======
+	       Primary:    #1890FF  Ant Design Blue
+	       Bullish:    #00E676  Vivid Green
+	       Bearish:    #FF5252  Vivid Red
+	       Warning:    #faad14  Amber/Gold
+	       Sidebar:    #001529  Ant Design dark sidebar
+	       Card BG:    #ffffff
+	       Page BG:    #f0f2f5
+	    */
+	    .stApp { background: #f0f2f5; font-size: 0.88rem; }
+	    .main .block-container { padding: 1.5rem 2rem; max-width: 1400px; }
+	    /* Sidebar - Ant Design Dark */
+	    section[data-testid="stSidebar"] {
+	        background: #001529; border-right: none; min-width: 24rem !important;
+	    }
+	    section[data-testid="stSidebar"] h3 {
+	        color: #fff !important; font-size: 1.6rem !important; font-weight: 700 !important;
+	        letter-spacing: .01em !important;
+	    }
+	    section[data-testid="stSidebar"] .stCaption {
+	        color: rgba(255,255,255,.55) !important; font-size: 0.88rem !important;
+	    }
+	    section[data-testid="stSidebar"] .stMarkdown,
+	    section[data-testid="stSidebar"] p, section[data-testid="stSidebar"] span,
+	    section[data-testid="stSidebar"] label,
+	    section[data-testid="stSidebar"] div { color: rgba(255,255,255,.85) !important; }
+	    section[data-testid="stSidebar"] .stMarkdown p strong {
+	        color: #fff !important; font-weight: 600 !important; font-size: 0.92rem !important;
+	    }
+	    section[data-testid="stSidebar"] hr { border-color: rgba(255,255,255,.12) !important; }
+	    .ig-label { font-size: 0.75rem !important; color: rgba(255,255,255,.45) !important;
+	        font-weight: 600 !important; text-transform: uppercase; letter-spacing: .08em;
+	        margin: 10px 0 4px 0; }
+	    h2, h3 { color: #1f1f1f; font-weight: 600; }
+	    .mc {
+	        background: #fff; border: 1px solid #f0f0f0; border-radius: 8px;
+	        padding: 16px 20px; box-shadow: 0 1px 2px rgba(0,0,0,.06);
+	        transition: box-shadow .2s;
+	    }
+	    .mc:hover { box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+	    .mc .mcl { font-size: 0.75rem; color: #8c8c8c; text-transform: uppercase;
+	        letter-spacing: .06em; font-weight: 500; margin-bottom: 4px; }
+	    .mc .mcv { font-size: 1.75rem; font-weight: 700; color: #1f1f1f; }
+	    .mc .mcs { font-size: 0.82rem; margin-top: 2px; color: #8c8c8c; }
+	    .up { color: #FF5252 !important; } .down { color: #00E676 !important; }
+	    .badge { display: inline-block; padding: 6px 24px; border-radius: 4px;
+	        font-weight: 600; font-size: 1.1rem; letter-spacing: .02em; }
+	    .badge-BUY { background: #f6ffed; color: #237804; border: 1px solid #b7eb8f; }
+	    .badge-OVERWEIGHT { background: #e6f7ff; color: #096dd9; border: 1px solid #91d5ff; }
+	    .badge-HOLD { background: #fffbe6; color: #ad6800; border: 1px solid #ffe58f; }
+	    .badge-UNDERWEIGHT { background: #fff7e6; color: #d46b08; border: 1px solid #ffd591; }
+	    .badge-SELL { background: #fff1f0; color: #cf1322; border: 1px solid #ffa39e; }
+	    .srow { display: flex; align-items: center; gap: 6px; padding: 3px 0; }
+	    .sdot { width: 14px; text-align: center; font-size: 1.12rem; flex-shrink: 0; }
+	    .slbl { font-size: 0.88rem; white-space: nowrap; }
+	    .s-act .sdot { color: #1890FF; } .s-act .slbl { color: #1890FF; font-weight: 600; }
+	    .s-done .sdot { color: #00E676; } .s-done .slbl { color: #00E676; }
+	    .s-wait .sdot { color: #d9d9d9; } .s-wait .slbl { color: #bfbfbf; }
+	    .tbox { text-align: center; padding: 8px 4px; background: rgba(255,255,255,.1);
+	        border-radius: 6px; }
+	    .tbox .tv { font-size: 1.1rem; font-weight: 700; color: #fff; }
+	    .tbox .tl { font-size: 0.72rem; color: rgba(255,255,255,.45); text-transform: uppercase; }
+	    .dash-panel {
+	        background: #fff; border: 1px solid #f0f0f0; border-radius: 8px;
+	        padding: 16px 20px; box-shadow: 0 1px 2px rgba(0,0,0,.06);
+	        margin-bottom: 10px;
+	    }
+	    .dash-panel h4 { color: #1f1f1f; font-size: 1rem; font-weight: 600;
+	        margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #f0f0f0; }
+	    .dash-panel p { font-size: 0.92rem; color: #595959; line-height: 1.5; }
+	    [data-baseweb="tab"] button,
+	    [data-baseweb="tab"] p,
+	    [data-baseweb="tab"] span,
+	    button[data-baseweb="tab"] { font-size: 0.92rem !important; font-weight: 600 !important; }
+	    .stTabs [data-baseweb="tab"] { font-size: 0.92rem !important; font-weight: 600 !important; }
+	    .stTabs [data-baseweb="tab"][aria-selected="true"] { color: #1890FF !important; }
+	    .stProgress > div > div > div > div { background: #1890FF; }
+	    section[data-testid="stSidebar"] input[type="text"],
+	    section[data-testid="stSidebar"] [data-baseweb="select"],
+	    section[data-testid="stSidebar"] [data-testid="stDateInput"] input {
+	        border: 1px solid #434343 !important; border-radius: 6px !important;
+	        background: #fff !important; color: #1f1f1f !important;
+	    }
+	    section[data-testid="stSidebar"] input[type="text"]::placeholder { color: #bfbfbf !important; }
+	    section[data-testid="stSidebar"] [data-baseweb="select"] * { color: #1f1f1f !important; }
+	    section[data-testid="stSidebar"] button[kind="primary"],
+	    section[data-testid="stSidebar"] button[kind="secondary"] {
+	        background: #1890FF !important; border-color: #1890FF !important; color: #fff !important;
+	    }
+	    section[data-testid="stSidebar"] button[kind="primary"]:hover,
+	    section[data-testid="stSidebar"] button[kind="secondary"]:hover {
+	        background: #40a9ff !important; border-color: #40a9ff !important;
+	    }
+	    .stButton button {
+	        border-radius: 6px !important; font-size: 0.88rem !important; padding: 4px 16px !important;
+	        color: #fff !important; border: 1px solid #1890FF !important;
+	        background: #1890FF !important; font-weight: 500 !important;
+	    }
+	    .stButton button:hover { background: #40a9ff !important; border-color: #40a9ff !important; }
+	    header, footer, #MainMenu,
+	    [data-testid="stHeader"], [data-testid="stToolbar"],
+	    [data-testid="stDecoration"], [data-testid="stStatusWidget"] { display: none !important; }
+	    .health-dot-ok  { color: #00E676; }
+	    .health-dot-down { color: #FF5252; }
+	    .health-dot-unknown { color: #d9d9d9; }
+	</style>""", unsafe_allow_html=True)
 
 # ── Data source probes (single-threaded, each has internal timeout) ────
 
@@ -936,26 +973,25 @@ def _render_health_bar():
         for key in keys:
             status = st.session_state.get(f"_health_{key}", "?")
             if status == "OK":
-                dot = '<span style="color:#059669;font-size:1.1rem">●</span>'
-                lbl_color = "#059669"
+                dot = '<span class="health-dot-ok">●</span>'
+                lbl_color = "#00E676"
                 label = "ON"
             elif status == "DOWN":
                 hint = HEALTH_HINTS.get(key, "")
-                dot = f'<span style="color:#dc2626;font-size:1.1rem" title="{hint}">●</span>'
-                lbl_color = "#dc2626"
+                dot = f'<span class="health-dot-down" title="{hint}">●</span>'
+                lbl_color = "#FF5252"
                 label = "OFF"
-                # Wrap with hint tooltip
-                label = f'<span title="{hint}" style="cursor:help">{label} ?</span>'
+                label = f'<span title="{hint}" style="cursor:help">{label}</span>'
             else:
-                dot = '<span style="color:#d1d5db;font-size:1.1rem">●</span>'
-                lbl_color = "#9ca3af"
+                dot = '<span class="health-dot-unknown">●</span>'
+                lbl_color = "#bfbfbf"
                 label = "—"
             chips.append(f'{dot} <span style="color:{lbl_color};font-size:0.72rem;font-weight:600">{key.upper()}</span> '
                         f'<span style="color:{lbl_color};font-size:0.65rem">{label}</span>')
         row = " &nbsp;│&nbsp; ".join(chips)
         html_parts.append(
-            f'<span style="color:#6b7280;font-size:0.65rem;font-weight:700;text-transform:uppercase">{cat}</span>'
-            f'<span style="margin-left:12px">{row}</span>'
+            f'<span style="color:#8c8c8c;font-size:0.68rem;font-weight:600;text-transform:uppercase">{cat}</span>'
+            f'<span style="margin-left:10px">{row}</span>'
         )
     full_html = " &nbsp;│&nbsp; ".join(html_parts)
     st.markdown(
@@ -987,16 +1023,8 @@ def run():
     # ═══ SIDEBAR ═══
     with st.sidebar:
         st.markdown("### TradingAgents")
-        st.caption("Multi-Agent Investment Research")
+        st.caption("AI-Powered Investment Research")
         st.divider()
-
-        # Input section with visual emphasis
-        st.markdown("""
-        <style>
-        .input-group { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; padding: 2px 12px 8px 12px; margin-bottom: 8px; }
-        .input-group .ig-label { font-size: 1.12rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin: 8px 0 2px 0; }
-        </style>
-        """, unsafe_allow_html=True)
 
         # Load last session
         last = _load_session()
@@ -1009,7 +1037,7 @@ def run():
 
         st.markdown('<div class="ig-label">Market</div>', unsafe_allow_html=True)
         market = _detect_market(symbol)
-        st.markdown(f'<div style="color:rgba(255,255,255,.45);font-size:1.25rem;padding:4px 0">{_market_label(market)}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="color:rgba(255,255,255,.45);font-size:0.88rem;padding:2px 0">{_market_label(market)}</div>', unsafe_allow_html=True)
 
         # Validate ticker format
         if market is None:
@@ -1239,20 +1267,21 @@ def run():
             fig.add_trace(go.Candlestick(
                 x=kdf["date"], open=kdf["open"], high=kdf["high"],
                 low=kdf["low"], close=kdf["close"],
-                name="Price", increasing_line_color="#dc2626", decreasing_line_color="#059669",
+                name="Price", increasing_line_color="#FF5252", decreasing_line_color="#00E676",
             ))
             fig.add_trace(go.Bar(
                 x=kdf["date"], y=kdf["volume"], name="Volume",
                 marker_color="rgba(37,99,235,0.3)", yaxis="y2",
             ))
             fig.update_layout(
-                title=f"{symbol}  {info.get('name', '')}",
-                xaxis_title="", yaxis_title="Price (¥)",
+                title=dict(text=f"{symbol}  {info.get('name', '')}", font=dict(color="#1f1f1f")),
+                xaxis_title="", yaxis_title="Price",
                 template="plotly_white",
-                height=420,
+                height=400,
                 margin=dict(l=0, r=0, t=50, b=0),
                 showlegend=False,
                 xaxis_rangeslider_visible=False,
+                yaxis=dict(gridcolor="#f0f0f0", zerolinecolor="#f0f0f0"),
                 yaxis2=dict(title="", overlaying="y", side="right", showgrid=False, visible=False),
                 hovermode="x unified",
             )
@@ -1417,15 +1446,15 @@ def run():
 
             if dec_fields:
                 rows = "".join(
-                    f'<tr><td style="padding:10px 16px;color:#fff3e8;font-weight:600;white-space:nowrap;border-bottom:1px solid #d44e1a;vertical-align:top;width:160px;font-size:1.31rem">{k}</td>'
-                    f'<td style="padding:10px 16px;color:#ffffff;border-bottom:1px solid #d44e1a;font-size:1.28rem;line-height:1.55">{v}</td></tr>'
+                    f'<tr><td style="padding:10px 16px;color:#1f1f1f;font-weight:600;white-space:nowrap;border-bottom:1px solid #f0f0f0;vertical-align:top;width:160px;font-size:0.92rem">{k}</td>'
+                    f'<td style="padding:10px 16px;color:#434343;border-bottom:1px solid #f0f0f0;font-size:0.92rem;line-height:1.55">{v}</td></tr>'
                     for k, v in dec_fields
                 )
-                st.markdown(f'<table style="width:100%;border-collapse:collapse;margin-bottom:12px;background:#D34947;border-radius:6px">{rows}</table>', unsafe_allow_html=True)
+                st.markdown(f'<table style="width:100%;border-collapse:collapse;margin-bottom:12px;background:#fff;border-radius:8px;border:1px solid #f0f0f0"><tr><th colspan="2" style="text-align:left;padding:10px 16px;background:#e6f7ff;color:#096dd9;font-size:0.88rem;font-weight:600;border-radius:8px 8px 0 0">Portfolio Manager Decision</th></tr>{rows}</table>', unsafe_allow_html=True)
             else:
                 clean = " ".join(l.strip() for l in (decision or "").split("\n") if l.strip() and not l.strip().startswith("#") and not l.strip().startswith("**Rating"))
                 if clean:
-                    st.markdown(f'<table style="width:100%;border-collapse:collapse;margin-bottom:12px;background:#D34947;border-radius:6px"><tr><td style="padding:10px 16px;color:#fff3e8;font-weight:600;white-space:nowrap;border-bottom:1px solid #d44e1a;vertical-align:top;width:160px;font-size:1.31rem">Summary</td><td style="padding:10px 16px;color:#ffffff;border-bottom:1px solid #d44e1a;font-size:1.28rem;line-height:1.55">{clean[:600]}</td></tr></table>', unsafe_allow_html=True)
+                    st.markdown(f'<table style="width:100%;border-collapse:collapse;margin-bottom:12px;background:#fff;border-radius:8px;border:1px solid #f0f0f0"><tr><th style="text-align:left;padding:10px 16px;background:#e6f7ff;color:#096dd9;font-size:0.88rem;font-weight:600;border-radius:8px 8px 0 0">Summary</th></tr><tr><td style="padding:10px 16px;color:#434343;font-size:0.92rem;line-height:1.55">{clean[:600]}</td></tr></table>', unsafe_allow_html=True)
 
             # ── 7-Analyst Reports ──
             st.markdown("#### 7-Analyst Reports")
@@ -1453,16 +1482,16 @@ def run():
                             break
                 report_rows += (
                     f'<tr>'
-                    f'<td style="padding:8px 12px;color:#0d3330;font-size:1.31rem;font-weight:600;border-bottom:1px solid #5fc9ba;white-space:nowrap;vertical-align:top;width:140px">{label}</td>'
-                    f'<td style="padding:8px 12px;color:#2d5e59;font-size:1.2rem;border-bottom:1px solid #5fc9ba;white-space:nowrap;vertical-align:top;width:150px">{data_input}</td>'
-                    f'<td style="padding:8px 12px;color:#1a3d3a;font-size:1.28rem;border-bottom:1px solid #5fc9ba;line-height:1.4">{finding}</td>'
+                    f'<td style="padding:8px 12px;color:#1f1f1f;font-size:0.88rem;font-weight:600;border-bottom:1px solid #e6f7ff;white-space:nowrap;vertical-align:top;width:140px">{label}</td>'
+                    f'<td style="padding:8px 12px;color:#595959;font-size:0.82rem;border-bottom:1px solid #e6f7ff;white-space:nowrap;vertical-align:top;width:150px">{data_input}</td>'
+                    f'<td style="padding:8px 12px;color:#434343;font-size:0.85rem;border-bottom:1px solid #e6f7ff;line-height:1.4">{finding}</td>'
                     f'</tr>'
                 )
             st.markdown(
-                f'<div class="dash-panel" style="background:#71E2D1;border-color:#5fc9ba"><table style="width:100%;border-collapse:collapse;background:#71E2D1">'
-                f'<tr><th style="text-align:left;padding:6px 12px;color:#0d3330;font-size:1.12rem;text-transform:uppercase">Analyst</th>'
-                f'<th style="text-align:left;padding:6px 12px;color:#0d3330;font-size:1.12rem;text-transform:uppercase">Data Input</th>'
-                f'<th style="text-align:left;padding:6px 12px;color:#0d3330;font-size:1.12rem;text-transform:uppercase">Key Finding</th></tr>'
+                f'<div class="dash-panel" style="background:#fff;border-color:#f0f0f0"><table style="width:100%;border-collapse:collapse;background:#fff">'
+                f'<tr><th style="text-align:left;padding:8px 12px;color:#096dd9;font-size:0.78rem;text-transform:uppercase;background:#e6f7ff">Analyst</th>'
+                f'<th style="text-align:left;padding:8px 12px;color:#096dd9;font-size:0.78rem;text-transform:uppercase;background:#e6f7ff">Data Input</th>'
+                f'<th style="text-align:left;padding:8px 12px;color:#096dd9;font-size:0.78rem;text-transform:uppercase;background:#e6f7ff">Key Finding</th></tr>'
                 f'{report_rows}</table></div>',
                 unsafe_allow_html=True,
             )
@@ -1663,16 +1692,16 @@ def run():
             chain_items.append(("Portfolio Manager", "Risk debate, Trader's plan, Research Manager's plan", pm_output))
 
             chain_rows = "".join(
-                f'<tr><td style="padding:8px 12px;color:#ffffff;font-size:1.31rem;font-weight:600;border-bottom:1px solid #1a4fba;white-space:nowrap;vertical-align:top;width:160px">{k}</td>'
-                f'<td style="padding:8px 12px;color:#8bb3f0;font-size:1.2rem;border-bottom:1px solid #1a4fba;white-space:nowrap;vertical-align:top;width:140px">{d}</td>'
-                f'<td style="padding:8px 12px;color:#e0edff;font-size:1.28rem;border-bottom:1px solid #1a4fba;line-height:1.4">{v}</td></tr>'
+                f'<tr><td style="padding:8px 12px;color:#1f1f1f;font-size:0.88rem;font-weight:600;border-bottom:1px solid #f0f0f0;white-space:nowrap;vertical-align:top;width:160px">{k}</td>'
+                f'<td style="padding:8px 12px;color:#8c8c8c;font-size:0.82rem;border-bottom:1px solid #f0f0f0;white-space:nowrap;vertical-align:top;width:140px">{d}</td>'
+                f'<td style="padding:8px 12px;color:#434343;font-size:0.85rem;border-bottom:1px solid #f0f0f0;line-height:1.4">{v}</td></tr>'
                 for k, d, v in chain_items
             )
             st.markdown(
-                f'<div class="dash-panel" style="background:#002FA7;border-color:#00258a"><table style="width:100%;border-collapse:collapse;background:#002FA7">'
-                f'<tr><th style="text-align:left;padding:6px 12px;color:#8bb3f0;font-size:1.12rem;text-transform:uppercase">Agent</th>'
-                f'<th style="text-align:left;padding:6px 12px;color:#8bb3f0;font-size:1.12rem;text-transform:uppercase">Input</th>'
-                f'<th style="text-align:left;padding:6px 12px;color:#8bb3f0;font-size:1.12rem;text-transform:uppercase">Decision / Conclusion</th></tr>'
+                f'<div class="dash-panel" style="background:#fff;border-color:#f0f0f0"><table style="width:100%;border-collapse:collapse;background:#fff">'
+                f'<tr><th style="text-align:left;padding:8px 12px;color:#096dd9;font-size:0.78rem;text-transform:uppercase;background:#e6f7ff">Agent</th>'
+                f'<th style="text-align:left;padding:8px 12px;color:#096dd9;font-size:0.78rem;text-transform:uppercase;background:#e6f7ff">Input</th>'
+                f'<th style="text-align:left;padding:8px 12px;color:#096dd9;font-size:0.78rem;text-transform:uppercase;background:#e6f7ff">Decision / Conclusion</th></tr>'
                 f'{chain_rows}</table></div>',
                 unsafe_allow_html=True,
             )

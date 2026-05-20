@@ -125,6 +125,13 @@ st.markdown("""<style>
 	    section[data-testid="stSidebar"] button[kind="secondary"]:hover {
 	        background: #40a9ff !important; border-color: #40a9ff !important;
 	    }
+	    /* Top-bar secondary buttons (Refresh, Settings, History) */
+	    .top-btn button {
+	        border-radius: 6px !important; font-size: 0.8rem !important; padding: 4px 14px !important;
+	        color: #595959 !important; border: 1px solid #d9d9d9 !important;
+	        background: #fff !important; font-weight: 500 !important;
+	    }
+	    .top-btn button:hover { color: #1890FF !important; border-color: #1890FF !important; }
 	    .stButton button {
 	        border-radius: 6px !important; font-size: 0.88rem !important; padding: 4px 16px !important;
 	        color: #fff !important; border: 1px solid #1890FF !important;
@@ -1182,7 +1189,7 @@ def run():
     if "_cached_result" not in st.session_state: st.session_state._cached_result = None
     if "_cached_symbol" not in st.session_state: st.session_state._cached_symbol = ""
     if "_cached_depth" not in st.session_state: st.session_state._cached_depth = ""
-    if "_settings_open" not in st.session_state: st.session_state._settings_open = False
+    if "_page" not in st.session_state: st.session_state._page = "main"
     if "_futu_enabled" not in st.session_state: st.session_state._futu_enabled = False
     if "_ib_enabled" not in st.session_state: st.session_state._ib_enabled = False
 
@@ -1210,54 +1217,12 @@ def run():
         market = _detect_market(symbol)
         st.markdown(f'<div style="color:rgba(255,255,255,.45);font-size:0.88rem;padding:2px 0">{_market_label(market)}</div>', unsafe_allow_html=True)
 
-        # ── Analysis History ──
+        # ── Analysis History shortcut ──
         st.divider()
-        st.markdown("**Analysis History**")
-        history = _load_history()
-        if not history:
-            st.caption("No history yet — run your first analysis.")
-        else:
-            st.caption(f"{len(history)} records")
-            for i, entry in enumerate(history[:20]):
-                sym = entry.get("symbol", "?")
-                dt = entry.get("trade_date", "")[:10]
-                rating = entry.get("rating", "HOLD")
-                depth = entry.get("depth", "")
-                name = entry.get("name", "") or sym
-                conf = entry.get("confidence", 0)
-                badge_color = {
-                    "BUY": "#00E676", "OVERWEIGHT": "#1890FF",
-                    "HOLD": "#faad14", "UNDERWEIGHT": "#fa541c",
-                    "SELL": "#FF5252",
-                }.get(rating.upper(), "#8c8c8c")
-                cols = st.columns([8, 1.5])
-                with cols[0]:
-                    btn_label = f"{name} ({sym}) — {dt} · {depth}"
-                    if st.button(btn_label, key=f"hist_{i}", use_container_width=True,
-                                help=f"Rating: {rating} · Confidence: {conf:.0%}"):
-                        full = _load_from_history(entry)
-                        if full:
-                            p = get_progress()
-                            p.finished = True
-                            p.step_results["__state__"] = full.get("state", {})
-                            p.step_results["__decision__"] = full.get("decision", "")
-                            p.step_results["__signal__"] = full.get("signal", {})
-                            st.session_state._done = True
-                            st.session_state._from_cache = True
-                            st.session_state._cached_result = full
-                            st.rerun()
-                with cols[1]:
-                    st.markdown(
-                        f'<span style="display:inline-block;padding:2px 8px;border-radius:3px;'
-                        f'background:{badge_color}22;color:{badge_color};font-size:0.7rem;'
-                        f'font-weight:600;margin-top:6px">{rating}</span>',
-                        unsafe_allow_html=True,
-                    )
-            if len(history) > 20:
-                st.caption(f"... and {len(history) - 20} more")
-            if st.button("Clear All History", type="secondary", use_container_width=True):
-                _clear_history()
-                st.rerun()
+        n_hist = len(_load_history())
+        if st.button(f"📋 Analysis History ({n_hist})", use_container_width=True):
+            st.session_state._page = "history"
+            st.rerun()
 
         # Validate ticker format
         if market is None:
@@ -1395,54 +1360,136 @@ def run():
     else:
         info, kline_df = _fetch_stock_data(symbol, market)
 
-    # System Health Dashboard
-    _render_health_bar()
+    # ═══ TOP BAR (health left, actions right) ═══
+    tcl, tcr = st.columns([3, 1])
+    with tcl:
+        _render_health_bar()
+    with tcr:
+        st.markdown('<div style="display:flex;gap:8px;justify-content:flex-end;padding-top:4px">', unsafe_allow_html=True)
+        b1, b2, b3 = st.columns([1, 1, 1], gap="small")
+        with b1:
+            if st.button("↻ Refresh", key="refresh_data_btn", use_container_width=True,
+                        help="Refresh stock data & K-line chart"):
+                _fetch_stock_data.clear()
+                for k in ("tencent", "eastmoney", "yahoo", "futu", "ib"):
+                    st.session_state.pop(f"_health_{k}", None)
+                import os as _os_env
+                if _os_env.environ.get("TA_FUTU_ENABLED", "0") == "1":
+                    try:
+                        from tradingagents.data.sources.futu import _reset_futu_flag
+                        _reset_futu_flag()
+                    except Exception:
+                        pass
+                _probe_all_now(["llm", "tencent", "eastmoney", "yahoo", "futu", "ib"])
+                st.rerun()
+        with b2:
+            if st.button("⚙ Settings", key="settings_btn", use_container_width=True):
+                st.session_state._page = "settings"
+                st.rerun()
+        with b3:
+            n_hist = len(_load_history())
+            if st.button(f"📋 History", key="history_btn", use_container_width=True,
+                        help=f"{n_hist} analysis records"):
+                st.session_state._page = "history"
+                st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    # Stock header + refresh + settings
-    rcol1, rcol2, rcol3 = st.columns([23, 2, 2])
-    with rcol1:
-        st.caption(f"Data as of {_dt.datetime.now().strftime('%H:%M:%S')} · 30 min cache")
-    with rcol2:
-        if st.button("Refresh", key="refresh_data_btn", help="Refresh stock data & K-line chart"):
-            _fetch_stock_data.clear()
-            for k in ("tencent", "eastmoney", "yahoo", "futu", "ib"):
-                st.session_state.pop(f"_health_{k}", None)
-            import os as _os_env
-            if _os_env.environ.get("TA_FUTU_ENABLED", "0") == "1":
-                try:
-                    from tradingagents.data.sources.futu import _reset_futu_flag
-                    _reset_futu_flag()
-                except Exception:
-                    pass
-            _probe_all_now(["llm", "tencent", "eastmoney", "yahoo", "futu", "ib"])
-            st.rerun()
-    with rcol3:
-        if st.button("⚙", key="settings_btn", help="Settings"):
-            st.session_state._settings_open = not st.session_state._settings_open
-            st.rerun()
+    # ═══ PAGE: SETTINGS ═══
+    if st.session_state._page == "settings":
+        st.markdown("## ⚙ Settings")
+        st.caption("Configure data source integrations. Changes take effect immediately.")
+        st.divider()
 
-    # ── Settings Panel ──
-    if st.session_state._settings_open:
-        with st.container():
-            st.markdown("---")
-            st.markdown("### ⚙ Settings")
-            sc1, sc2 = st.columns(2)
-            with sc1:
-                new_futu = st.toggle("Futu OpenD", value=st.session_state._futu_enabled,
-                                     help="Enable Futu OpenD for enriched A/HK/US stock data. Requires Futu OpenD running on port 11111.")
-                if new_futu != st.session_state._futu_enabled:
-                    st.session_state._futu_enabled = new_futu
-                    st.session_state.pop("_health_futu", None)
-                    st.rerun()
-            with sc2:
-                new_ib = st.toggle("IB Gateway", value=st.session_state._ib_enabled,
-                                   help="Enable Interactive Brokers for US/HK stock data. Requires IB Gateway/TWS running on port 4002.")
-                if new_ib != st.session_state._ib_enabled:
-                    st.session_state._ib_enabled = new_ib
-                    st.session_state.pop("_health_ib", None)
-                    st.rerun()
-            st.caption("Toggles take effect on next Refresh or Run Analysis. Both default to OFF.")
-            st.markdown("---")
+        sc1, sc2 = st.columns(2)
+        with sc1:
+            st.markdown("### Futu OpenD")
+            st.caption("Free local market data service. Download from futunn.com. Runs on port 11111.")
+            new_futu = st.toggle("Enable Futu OpenD", value=st.session_state._futu_enabled,
+                                 help="Requires Futu OpenD running on localhost:11111")
+            if new_futu != st.session_state._futu_enabled:
+                st.session_state._futu_enabled = new_futu
+                st.session_state.pop("_health_futu", None)
+                st.rerun()
+        with sc2:
+            st.markdown("### IB Gateway")
+            st.caption("Professional broker data via Interactive Brokers. Runs on port 4002.")
+            new_ib = st.toggle("Enable IB Gateway", value=st.session_state._ib_enabled,
+                               help="Requires IB Gateway/TWS running on localhost:4002")
+            if new_ib != st.session_state._ib_enabled:
+                st.session_state._ib_enabled = new_ib
+                st.session_state.pop("_health_ib", None)
+                st.rerun()
+
+        st.divider()
+        st.caption("Futu and IB are optional — HTTP data sources (Tencent, Eastmoney, Yahoo) work without them.")
+        if st.button("← Back to Dashboard", type="primary"):
+            st.session_state._page = "main"
+            st.rerun()
+        return
+
+    # ═══ PAGE: HISTORY ═══
+    if st.session_state._page == "history":
+        st.markdown("## 📋 Analysis History")
+        history = _load_history()
+        if not history:
+            st.info("No analysis history yet. Run your first analysis to start building a record.")
+        else:
+            st.caption(f"{len(history)} records — click any row to reload that analysis")
+            st.divider()
+            # Table-style layout
+            for i, entry in enumerate(history[:50]):
+                sym = entry.get("symbol", "?")
+                dt = entry.get("trade_date", "")[:10]
+                rating = entry.get("rating", "HOLD")
+                depth = entry.get("depth", "")
+                name = entry.get("name", "") or sym
+                conf = entry.get("confidence", 0)
+                market = entry.get("market", "")
+                market_icon = {"a_stock": "🇨🇳", "hk_stock": "🇭🇰", "us_stock": "🇺🇸"}.get(market, "")
+                badge_color = {
+                    "BUY": "#00E676", "OVERWEIGHT": "#1890FF",
+                    "HOLD": "#faad14", "UNDERWEIGHT": "#fa541c",
+                    "SELL": "#FF5252",
+                }.get(rating.upper(), "#8c8c8c")
+                cols = st.columns([4, 2, 1.5, 1.5, 1])
+                with cols[0]:
+                    st.write(f"{market_icon} **{name}** ({sym})")
+                with cols[1]:
+                    st.write(f"{dt} · {depth}")
+                with cols[2]:
+                    st.markdown(
+                        f'<span style="display:inline-block;padding:4px 12px;border-radius:4px;'
+                        f'background:{badge_color}22;color:{badge_color};font-size:0.78rem;'
+                        f'font-weight:600">{rating}</span>',
+                        unsafe_allow_html=True,
+                    )
+                with cols[3]:
+                    st.write(f"{conf:.0%} conf")
+                with cols[4]:
+                    if st.button("Load", key=f"hist_load_{i}"):
+                        full = _load_from_history(entry)
+                        if full:
+                            p = get_progress()
+                            p.finished = True
+                            p.step_results["__state__"] = full.get("state", {})
+                            p.step_results["__decision__"] = full.get("decision", "")
+                            p.step_results["__signal__"] = full.get("signal", {})
+                            st.session_state._done = True
+                            st.session_state._from_cache = True
+                            st.session_state._cached_result = full
+                            st.session_state._page = "main"
+                            st.rerun()
+            st.divider()
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("← Back to Dashboard", type="primary"):
+                st.session_state._page = "main"
+                st.rerun()
+        with c2:
+            if history and st.button("Clear All History", type="secondary"):
+                _clear_history()
+                st.rerun()
+        return
 
     def _mc(label, value, fmt=None, color_class=""):
         if value is None or (isinstance(value, float) and value != value):

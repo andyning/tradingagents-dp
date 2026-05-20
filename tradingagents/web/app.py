@@ -391,29 +391,55 @@ def _fetch_stock_data(symbol: str, market: str, days: int = 30):
                 info["vol_ratio"] = None
         # Get display name — multi-source fallback per market
         info["name"] = _lookup_stock_name(symbol, market)
-        # Enrich PE/PB/change_pct from quote if missing from K-line (Tencent K-line is OHLCV-only)
-        if info.get("pe") is None or (isinstance(info["pe"], float) and info["pe"] != info["pe"]) or \
-           info.get("pb") is None or (isinstance(info["pb"], float) and info["pb"] != info["pb"]) or \
-           info.get("change_pct") is None or info.get("turn") is None or \
-           info.get("pe_forward") is None or info.get("total_shares") is None:
-            try:
-                qdf = mod.get_quote(symbol)
-                if not qdf.empty:
+        # Enrich PE/PB/change_pct/shares from ALL available quote sources
+        # K-line is OHLCV-only (Tencent), so we gather fundamentals from quotes
+        _needs_enrich = (
+            info.get("pe") is None or (isinstance(info["pe"], float) and info["pe"] != info["pe"]) or
+            info.get("pb") is None or (isinstance(info["pb"], float) and info["pb"] != info["pb"]) or
+            info.get("change_pct") is None or info.get("turn") is None or
+            info.get("pe_forward") is None or info.get("total_shares") is None or
+            info.get("market_cap") is None
+        )
+        if _needs_enrich:
+            # Try primary quote first, then fallback to other sources per market
+            _quote_sources = [mod.get_quote]  # primary (Tencent/AH, Yahoo/US)
+            # Add Eastmoney as fallback for A/HK
+            if market in ("a_stock", "hk_stock"):
+                try:
+                    from tradingagents.data.http.eastmoney import EastmoneySource
+                    em = EastmoneySource(market=market)
+                    _quote_sources.append(lambda s: em.quote(s))
+                except Exception:
+                    pass
+            # Add Yahoo as fallback for A/HK
+            if market in ("a_stock", "hk_stock"):
+                try:
+                    from tradingagents.data.http.yahoo import YahooSource
+                    yh = YahooSource(market=market)
+                    _quote_sources.append(lambda s: yh.quote(s))
+                except Exception:
+                    pass
+
+            for qfn in _quote_sources:
+                try:
+                    qdf = qfn(symbol)
+                    if qdf is None or qdf.empty:
+                        continue
                     qr = qdf.iloc[0]
                     for k in ("pe", "pb", "change_pct", "turnover", "market_cap",
                               "pe_forward", "total_shares", "float_shares"):
                         qv = qr.get(k)
                         if qv is not None and (not isinstance(qv, float) or qv == qv):
                             if k == "turnover":
-                                info["turn"] = float(qv) if qv else None
-                            elif info.get(k) is None or (isinstance(info[k], float) and info[k] != info[k]):
+                                if info.get("turn") is None or info["turn"] == 0:
+                                    info["turn"] = float(qv) if qv else None
+                            elif info.get(k) is None or (isinstance(info[k], float) and info[k] != info[k]) or info.get(k) == 0:
                                 info[k] = float(qv) if qv else None
-                    # Also get name from quote if still unknown
                     qname = qr.get("name", "")
                     if qname and qname != symbol and info.get("name") == symbol:
                         info["name"] = str(qname)
-            except Exception:
-                pass
+                except Exception:
+                    continue
         # Infer profitability from PE (works without Futu)
         pe_val = info.get("pe")
         if pe_val is not None and pe_val == pe_val:

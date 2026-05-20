@@ -1731,11 +1731,15 @@ def run():
             cached_depth = st.session_state._cached_result.get("depth", "")
             st.info(f"Showing cached analysis · Date: **{cached_date}** · Depth: **{cached_depth}** · Click **Run Analysis** to refresh.")
 
-        # Rating
-        rating = "HOLD"
-        for r in ("Buy", "Overweight", "Hold", "Underweight", "Sell"):
-            if r.lower() in decision.lower():
-                rating = r.upper(); break
+        # Rating — use structured signal first, fall back to keyword search
+        signal = state.get("structured_decision", {}) if isinstance(state, dict) else {}
+        rating = signal.get("action", "") if isinstance(signal, dict) else ""
+        if not rating:
+            for r in ("Buy", "Overweight", "Hold", "Underweight", "Sell"):
+                if r.lower() in decision.lower():
+                    rating = r.upper(); break
+        if not rating:
+            rating = "HOLD"
 
         st.markdown(f'<span class="badge badge-{rating}">{rating}</span>', unsafe_allow_html=True)
 

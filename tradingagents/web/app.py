@@ -303,6 +303,22 @@ def _run_pipeline(symbol: str, trade_date: str, market: str, depth: str, data_wi
         p2.step_results["__state__"] = state
         p2.step_results["__decision__"] = decision
         p2.step_results["__signal__"] = signal
+
+        # Save to analysis history
+        try:
+            rating = signal.get("action", "HOLD") if isinstance(signal, dict) else "HOLD"
+            confidence = signal.get("confidence", 0) if isinstance(signal, dict) else 0
+            name = ""
+            try:
+                from tradingagents.web.app import _fetch_stock_data
+                info, _ = _fetch_stock_data(symbol, market)
+                name = info.get("name", symbol)
+            except Exception:
+                name = symbol
+            _save_to_history(symbol, trade_date, market, depth,
+                           rating, confidence, name, state, decision, signal)
+        except Exception:
+            pass  # History save failure must not break the pipeline
     except Exception as exc:
         finish(error=str(exc))
 
@@ -547,6 +563,98 @@ def _load_cached_result(symbol: str, depth: str) -> dict | None:
         return json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         return None
+
+
+# ── Analysis History ────────────────────────────────────────────────────
+
+def _history_index_path() -> Path:
+    from tradingagents.config import get_settings
+    return get_settings().results_dir / "_history.json"
+
+
+def _load_history() -> list[dict]:
+    """Load the full analysis history index (most recent first)."""
+    path = _history_index_path()
+    if not path.exists():
+        return []
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+
+
+def _save_to_history(symbol: str, trade_date: str, market: str, depth: str,
+                     rating: str, confidence: float, name: str,
+                     state: dict, decision: str, signal: dict):
+    """Append an analysis result to the JSON history, saving the full report."""
+    from tradingagents.config import get_settings
+    import datetime as _dt
+
+    ts = _dt.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    safe = symbol.strip().replace("/", "_").replace("\\", "_").replace("..", "")
+
+    # Save full result
+    hist_dir = get_settings().results_dir / safe / "history"
+    hist_dir.mkdir(parents=True, exist_ok=True)
+    result = {
+        "symbol": symbol, "trade_date": trade_date, "market": market,
+        "depth": depth, "rating": rating, "confidence": confidence,
+        "name": name, "saved_at": ts,
+        "state": state, "decision": decision, "signal": signal,
+    }
+    hist_file = hist_dir / f"{trade_date}_{depth}_{ts.replace(':', '-')}.json"
+    try:
+        hist_file.write_text(json.dumps(result, ensure_ascii=False, default=str), encoding="utf-8")
+    except Exception:
+        pass  # Don't block analysis for history save failures
+
+    # Update index (keep latest 500 entries)
+    idx = _load_history()
+    idx.insert(0, {
+        "symbol": symbol, "trade_date": trade_date, "market": market,
+        "depth": depth, "rating": rating, "confidence": confidence,
+        "name": name, "saved_at": ts,
+    })
+    # Deduplicate same symbol+date+depth
+    seen = set()
+    deduped = []
+    for entry in idx:
+        key = (entry["symbol"], entry["trade_date"], entry["depth"])
+        if key not in seen:
+            seen.add(key)
+            deduped.append(entry)
+    deduped = deduped[:500]
+    try:
+        _history_index_path().parent.mkdir(parents=True, exist_ok=True)
+        _history_index_path().write_text(json.dumps(deduped, ensure_ascii=False), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def _load_from_history(entry: dict) -> dict | None:
+    """Load a full analysis result from its history entry."""
+    from tradingagents.config import get_settings
+    safe = entry["symbol"].strip().replace("/", "_").replace("\\", "_").replace("..", "")
+    hist_dir = get_settings().results_dir / safe / "history"
+    if not hist_dir.exists():
+        return None
+    # Find matching file by trade_date and depth
+    td = entry.get("trade_date", "")
+    depth = entry.get("depth", "")
+    for f in sorted(hist_dir.iterdir(), reverse=True):
+        if f.name.startswith(f"{td}_{depth}_") and f.suffix == ".json":
+            try:
+                return json.loads(f.read_text(encoding="utf-8"))
+            except Exception:
+                return None
+    return None
+
+
+def _clear_history():
+    """Remove the history index. Individual files remain but won't be listed."""
+    path = _history_index_path()
+    if path.exists():
+        path.unlink()
 
 
 # ── Auto-detect market from symbol ──────────────────────────────────────
@@ -1175,6 +1283,56 @@ def run():
         c1.markdown(f'<div class="tbox"><div class="tv">{p_now.tokens_in:,}</div><div class="tl">Input</div></div>', unsafe_allow_html=True)
         c2.markdown(f'<div class="tbox"><div class="tv">{p_now.tokens_out:,}</div><div class="tl">Output</div></div>', unsafe_allow_html=True)
         c3.markdown(f'<div class="tbox"><div class="tv">{p_now.tokens_total:,}</div><div class="tl">Total</div></div>', unsafe_allow_html=True)
+
+        # ── Analysis History ──
+        st.divider()
+        st.markdown("**Analysis History**")
+        history = _load_history()
+        if not history:
+            st.caption("No history yet — run your first analysis.")
+        else:
+            st.caption(f"{len(history)} records (most recent first)")
+            # Show latest 30 entries
+            for i, entry in enumerate(history[:30]):
+                sym = entry.get("symbol", "?")
+                dt = entry.get("trade_date", "")[:10]
+                rating = entry.get("rating", "HOLD")
+                depth = entry.get("depth", "")
+                name = entry.get("name", "") or sym
+                conf = entry.get("confidence", 0)
+                badge_color = {
+                    "BUY": "#00E676", "OVERWEIGHT": "#1890FF",
+                    "HOLD": "#faad14", "UNDERWEIGHT": "#fa541c",
+                    "SELL": "#FF5252",
+                }.get(rating.upper(), "#8c8c8c")
+                cols = st.columns([8, 1.5])
+                with cols[0]:
+                    btn_label = f"{name} ({sym}) — {dt} · {depth}"
+                    if st.button(btn_label, key=f"hist_{i}", use_container_width=True,
+                                help=f"Rating: {rating} · Confidence: {conf:.0%}"):
+                        full = _load_from_history(entry)
+                        if full:
+                            p = get_progress()
+                            p.finished = True
+                            p.step_results["__state__"] = full.get("state", {})
+                            p.step_results["__decision__"] = full.get("decision", "")
+                            p.step_results["__signal__"] = full.get("signal", {})
+                            st.session_state._done = True
+                            st.session_state._from_cache = True
+                            st.session_state._cached_result = full
+                            st.rerun()
+                with cols[1]:
+                    st.markdown(
+                        f'<span style="display:inline-block;padding:2px 8px;border-radius:3px;'
+                        f'background:{badge_color}22;color:{badge_color};font-size:0.7rem;'
+                        f'font-weight:600;margin-top:6px">{rating}</span>',
+                        unsafe_allow_html=True,
+                    )
+            if len(history) > 30:
+                st.caption(f"... and {len(history) - 30} more")
+            if st.button("Clear All History", type="secondary", use_container_width=True):
+                _clear_history()
+                st.rerun()
 
     # ═══ CACHE CHECK ═══
     # When user changes symbol/depth, auto-load cached result if exists

@@ -1329,9 +1329,8 @@ def run():
     with b1:
         if st.button("↻ Refresh", key="refresh_data_btn", help="Refresh stock data & K-line chart"):
             _fetch_stock_data.clear()
-            from tradingagents.data.http import reset_connectivity_profile, clear_http_session
+            from tradingagents.data.http import clear_http_session
             clear_http_session()
-            reset_connectivity_profile()
             for k in ("tencent", "eastmoney", "yahoo", "futu", "ib"):
                 st.session_state.pop(f"_health_{k}", None)
             import os as _os_env
